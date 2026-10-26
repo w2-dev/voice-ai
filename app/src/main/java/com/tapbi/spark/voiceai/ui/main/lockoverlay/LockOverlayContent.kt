@@ -29,7 +29,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import com.tapbi.spark.voiceai.ui.main.biometric.BiometricActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -71,6 +78,7 @@ import kotlin.math.roundToInt
 
 enum class OverlayUnlockMethod {
     VOICE,
+    FINGERPRINT,
     PATTERN,
     PIN,
     SWIPE
@@ -86,11 +94,13 @@ fun LockOverlayContent(
     var offsetY by remember { mutableFloatStateOf(0f) }
     val animatedOffsetY by animateFloatAsState(targetValue = offsetY, label = "offsetY")
 
-    // Default active method: VOICE if enabled, else SWIPE
+    // Default active method: VOICE if enabled, else FINGERPRINT, PATTERN, or SWIPE
     var selectedMethod by remember {
         mutableStateOf(
             when {
                 LockScreenState.isVoiceLockEnabled && LockScreenState.hasVoiceSetup -> OverlayUnlockMethod.VOICE
+                LockScreenState.isFingerprintEnabled -> OverlayUnlockMethod.FINGERPRINT
+                LockScreenState.isPatternLockEnabled && LockScreenState.hasPatternSetup -> OverlayUnlockMethod.PATTERN
                 else -> OverlayUnlockMethod.SWIPE
             }
         )
@@ -99,8 +109,53 @@ fun LockOverlayContent(
     var voiceStatus by remember { mutableStateOf("") }
     var recognizedTextInfo by remember { mutableStateOf("") }
     var vectorDistInfo by remember { mutableStateOf("") }
+    var biometricStatus by remember { mutableStateOf("") }
     var isRecording by remember { mutableStateOf(false) }
     var isPatternError by remember { mutableStateOf(false) }
+
+    fun triggerBiometricUnlock() {
+        biometricStatus = "Đang chờ xác thực vân tay / sinh trắc học..."
+        try {
+            val intent = Intent(context, BiometricActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Timber.e(e, "Error launching BiometricActivity")
+            biometricStatus = "Lỗi mở giao diện vân tay: ${e.localizedMessage}"
+        }
+    }
+
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == BiometricActivity.ACTION_BIOMETRIC_UNLOCK) {
+                    biometricStatus = "✅ Xác thực vân tay thành công! Mở khóa..."
+                    onUnlockClick()
+                }
+            }
+        }
+        val filter = IntentFilter(BiometricActivity.ACTION_BIOMETRIC_UNLOCK)
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        onDispose {
+            try {
+                context.unregisterReceiver(receiver)
+            } catch (e: Exception) {
+                Timber.e(e)
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (selectedMethod == OverlayUnlockMethod.FINGERPRINT) {
+            triggerBiometricUnlock()
+        }
+    }
 
     fun startVoiceRecognition() {
         if (context.hasRecordAudioPermission()) {
@@ -340,6 +395,18 @@ fun LockOverlayContent(
                     )
                 }
 
+                if (LockScreenState.isFingerprintEnabled) {
+                    UnlockMethodChip(
+                        icon = "👆",
+                        label = "Vân tay",
+                        isSelected = selectedMethod == OverlayUnlockMethod.FINGERPRINT,
+                        onClick = {
+                            selectedMethod = OverlayUnlockMethod.FINGERPRINT
+                            triggerBiometricUnlock()
+                        }
+                    )
+                }
+
                 if (LockScreenState.isPatternLockEnabled && LockScreenState.hasPatternSetup) {
                     UnlockMethodChip(
                         icon = "🎨",
@@ -414,6 +481,46 @@ fun LockOverlayContent(
                                 text = vectorDistInfo,
                                 fontSize = 12.sp,
                                 color = Color(0xFFFFF59D),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+
+                this@Column.AnimatedVisibility(
+                    visible = selectedMethod == OverlayUnlockMethod.FINGERPRINT,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
+                                .shadow(6.dp, CircleShape)
+                                .clip(CircleShape)
+                                .background(themeConfig.accentColor)
+                                .clickable { triggerBiometricUnlock() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "👆", fontSize = 40.sp)
+                        }
+
+                        Text(
+                            text = "Chạm biểu tượng quét Vân tay / Sinh trắc học",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White.copy(alpha = 0.9f)
+                        )
+
+                        if (biometricStatus.isNotBlank()) {
+                            Text(
+                                text = biometricStatus,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (biometricStatus.contains("thành công", ignoreCase = true)) Color(0xFF81C784) else Color(0xFFFF8A65),
                                 textAlign = TextAlign.Center
                             )
                         }

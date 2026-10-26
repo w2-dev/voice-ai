@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.flowWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.ironman.spark.billing.BillingManager
@@ -24,6 +25,8 @@ import com.tapbi.spark.voiceai.R
 import com.tapbi.spark.voiceai.ads.feature.enableShowOpenForeground
 import com.tapbi.spark.voiceai.ads.utils.isAdmobInitialized
 import com.tapbi.spark.voiceai.common.models.LockScreenState
+import com.tapbi.spark.voiceai.data.preferences.PrefKeys
+import com.tapbi.spark.voiceai.data.preferences.PreferencesDataStoreHelper
 import com.tapbi.spark.voiceai.extension.hasOverlayPermission
 import com.tapbi.spark.voiceai.extension.initAdsAndLoadAds
 import com.tapbi.spark.voiceai.extension.isAtLeastApi26
@@ -49,6 +52,9 @@ class MainActivity : BaseActivity<MainViewModel>(), BillingManager.OnBillingList
     @Inject
     lateinit var routeNavigation: RouteNavigation
 
+    @Inject
+    lateinit var preferencesDataStoreHelper: PreferencesDataStoreHelper
+
     private lateinit var navController: NavHostController
 
     override fun provideViewModel(): Class<MainViewModel> {
@@ -64,12 +70,36 @@ class MainActivity : BaseActivity<MainViewModel>(), BillingManager.OnBillingList
 
     override fun onResume() {
         super.onResume()
-        if (LockScreenState.isLockScreenActive && hasOverlayPermission()) {
-            val intent = Intent(this, LockScreenService::class.java)
-            if (isAtLeastApi26) {
-                startForegroundService(intent)
-            } else {
-                startService(intent)
+        lifecycleScope.launch {
+            val isActive = preferencesDataStoreHelper.getBoolean(PrefKeys.IS_LOCK_SCREEN_ACTIVE, false)
+            val isVoice = preferencesDataStoreHelper.getBoolean(PrefKeys.IS_VOICE_LOCK_ENABLED, false)
+            val voicePass = preferencesDataStoreHelper.getString(PrefKeys.VOICE_PASSPHRASE, "")
+            val speechLang = preferencesDataStoreHelper.getString(PrefKeys.SELECTED_SPEECH_LANGUAGE, "vi-VN")
+            val isPin = preferencesDataStoreHelper.getBoolean(PrefKeys.IS_PIN_LOCK_ENABLED, false)
+            val pinPass = preferencesDataStoreHelper.getString(PrefKeys.PIN_PASSWORD, "")
+            val isPattern = preferencesDataStoreHelper.getBoolean(PrefKeys.IS_PATTERN_LOCK_ENABLED, false)
+            val patternStr = preferencesDataStoreHelper.getString(PrefKeys.PATTERN_LOCK_DATA, "")
+            val isFingerprint = preferencesDataStoreHelper.getBoolean(PrefKeys.IS_FINGERPRINT_ENABLED, false)
+
+            LockScreenState.isLockScreenActive = isActive
+            LockScreenState.isVoiceLockEnabled = isVoice
+            LockScreenState.voicePassphrase = voicePass
+            LockScreenState.speechLanguageCode = speechLang
+            LockScreenState.isPinLockEnabled = isPin
+            LockScreenState.pinPassword = pinPass
+            LockScreenState.isPatternLockEnabled = isPattern
+            if (patternStr.isNotBlank()) {
+                LockScreenState.targetPattern = patternStr.split(",").mapNotNull { it.trim().toIntOrNull() }
+            }
+            LockScreenState.isFingerprintEnabled = isFingerprint
+
+            if (isActive && hasOverlayPermission()) {
+                val intent = Intent(this@MainActivity, LockScreenService::class.java)
+                if (isAtLeastApi26) {
+                    startForegroundService(intent)
+                } else {
+                    startService(intent)
+                }
             }
         }
     }

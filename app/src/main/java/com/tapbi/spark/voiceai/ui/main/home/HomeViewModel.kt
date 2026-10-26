@@ -2,6 +2,10 @@ package com.tapbi.spark.voiceai.ui.main.home
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.provider.Settings
+import android.widget.Toast
+import androidx.biometric.BiometricManager
 import androidx.lifecycle.viewModelScope
 import com.tapbi.spark.voiceai.common.models.LockScreenState
 import com.tapbi.spark.voiceai.data.preferences.PrefKeys
@@ -14,6 +18,7 @@ import com.tapbi.spark.voiceai.navigation.NavigationScreen
 import com.tapbi.spark.voiceai.service.LockScreenService
 import com.tapbi.spark.voiceai.ui.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -22,6 +27,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     val navigation: MainNavigator,
     private val preferencesDataStoreHelper: PreferencesDataStoreHelper
 ) : BaseViewModel() {
@@ -56,6 +62,15 @@ class HomeViewModel @Inject constructor(
                 LockScreenState.targetPattern = patternStr.split(",").mapNotNull { it.trim().toIntOrNull() }
             }
             LockScreenState.isFingerprintEnabled = isFingerprint
+
+            if (isActive && context.hasOverlayPermission()) {
+                val intent = Intent(context, LockScreenService::class.java)
+                if (isAtLeastApi26) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            }
 
             _uiState.update {
                 it.copy(
@@ -133,12 +148,16 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(isPatternLockEnabled = enabled) }
     }
 
-    fun toggleFingerprint(enabled: Boolean) {
-        LockScreenState.isFingerprintEnabled = enabled
-        viewModelScope.launch {
-            preferencesDataStoreHelper.putBoolean(PrefKeys.IS_FINGERPRINT_ENABLED, enabled)
+    fun toggleFingerprint(context: Context, enabled: Boolean) {
+        if (enabled) {
+            setupFingerprintAuth(context)
+        } else {
+            LockScreenState.isFingerprintEnabled = false
+            viewModelScope.launch {
+                preferencesDataStoreHelper.putBoolean(PrefKeys.IS_FINGERPRINT_ENABLED, false)
+            }
+            _uiState.update { it.copy(isFingerprintEnabled = false) }
         }
-        _uiState.update { it.copy(isFingerprintEnabled = enabled) }
     }
 
     fun onVoiceSetupClick() {
@@ -152,7 +171,40 @@ class HomeViewModel @Inject constructor(
         navigation.openPatternSetup()
     }
 
-    fun onFingerprintClick() {
+    fun onFingerprintClick(context: Context) {
+        setupFingerprintAuth(context)
+    }
+
+    private fun setupFingerprintAuth(context: Context) {
+        val biometricManager = BiometricManager.from(context)
+        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        when (biometricManager.canAuthenticate(authenticators)) {
+            BiometricManager.BIOMETRIC_SUCCESS -> {
+                LockScreenState.isFingerprintEnabled = true
+                viewModelScope.launch {
+                    preferencesDataStoreHelper.putBoolean(PrefKeys.IS_FINGERPRINT_ENABLED, true)
+                }
+                _uiState.update { it.copy(isFingerprintEnabled = true) }
+                Toast.makeText(context, "✅ Đã bật mở khóa bằng Vân tay/Sinh trắc học!", Toast.LENGTH_SHORT).show()
+            }
+            BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
+                Toast.makeText(context, "Chưa cài đặt vân tay! Vui lòng cài đặt trước.", Toast.LENGTH_SHORT).show()
+                val enrollIntent = if (Build.VERSION.SDK_INT >= 30) {
+                    Intent(Settings.ACTION_BIOMETRIC_ENROLL).apply {
+                        putExtra(
+                            Settings.EXTRA_BIOMETRIC_AUTHENTICATORS_ALLOWED,
+                            authenticators
+                        )
+                    }
+                } else {
+                    Intent(Settings.ACTION_SECURITY_SETTINGS)
+                }
+                context.startActivity(enrollIntent)
+            }
+            else -> {
+                Toast.makeText(context, "Thiết bị không hỗ trợ sinh trắc học!", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     fun onLockScreenThemesClick() {

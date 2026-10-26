@@ -70,7 +70,7 @@ fun HomeScreen(
             onVoiceToggle = { viewModel.toggleVoiceLock(it) },
             onPinToggle = { viewModel.togglePinLock(it) },
             onPatternToggle = { viewModel.togglePatternLock(it) },
-            onFingerprintToggle = { viewModel.toggleFingerprint(it) },
+            onFingerprintToggle = { viewModel.toggleFingerprint(context, it) },
             onSetupAiClick = { viewModel.onSetupAiProtectionClick() }
         )
 
@@ -79,7 +79,7 @@ fun HomeScreen(
             onVoiceSetup = { viewModel.onVoiceSetupClick() },
             onPinSetup = { viewModel.onPinSetupClick() },
             onPatternSetup = { viewModel.onPatternSetupClick() },
-            onFingerprintSetup = { viewModel.onFingerprintClick() }
+            onFingerprintSetup = { viewModel.onFingerprintClick(context) }
         )
 
         // Bottom Banner: Lock Screen Themes

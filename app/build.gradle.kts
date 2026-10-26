@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -86,7 +84,8 @@ baselineProfile {
 tasks.matching { it.name == "copyBaselineProfileIntoSrc" }.configureEach {
     outputs.upToDateWhen { false }
     doFirst {
-        val generatedProfilesDir = layout.projectDirectory.dir("src/main/generated/baselineProfiles").asFile
+        val generatedProfilesDir =
+            layout.projectDirectory.dir("src/main/generated/baselineProfiles").asFile
         generatedProfilesDir.mkdirs()
         generatedProfilesDir.listFiles()?.forEach { generatedFile ->
             generatedFile.deleteRecursively()
@@ -147,7 +146,8 @@ dependencies {
     // Utils
     implementation(libs.timber)
     implementation(libs.datastore.preferences)
-    implementation("org.apache.commons:commons-compress:1.26.1")
+    implementation("org.apache.commons:commons-compress:1.28.0")
+    implementation(libs.androidx.biometric)
 
     implementation(libs.lottie.compose)
 

@@ -1,6 +1,7 @@
 #CORE / BUILD
 [versions]
 agp = "9.4.1"
+biometric = "1.1.0"
 kotlin = "2.0.21"
 ksp = "2.0.21-1.0.28"
 room = "2.6.1"
@@ -67,6 +68,7 @@ startupRuntime = "1.2.0"
 
 [libraries]
 #ANDROID CORE
+androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 androidx-compose-runtime-livedata = { module = "androidx.compose.runtime:runtime-livedata" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
