@@ -23,6 +23,8 @@ import com.tapbi.spark.voiceai.ui.main.pattern.PatternSetupScreen
 import com.tapbi.spark.voiceai.ui.main.pattern.PatternSetupViewModel
 import com.tapbi.spark.voiceai.ui.main.pin.PinSetupScreen
 import com.tapbi.spark.voiceai.ui.main.pin.PinSetupViewModel
+import com.tapbi.spark.voiceai.ui.main.security.SecurityQuestionScreen
+import com.tapbi.spark.voiceai.ui.main.security.SecurityQuestionViewModel
 import com.tapbi.spark.voiceai.ui.main.premium.PremiumScreen
 import com.tapbi.spark.voiceai.ui.main.premium.PremiumViewModel
 import com.tapbi.spark.voiceai.ui.main.splash.SplashScreen
@@ -120,6 +122,19 @@ fun Navigation(
             val viewModel = hiltViewModel<PinSetupViewModel>()
             PinSetupScreen(
                 viewModel, modifier = Modifier
+                    .padding(top = innerPadding.calculateTopPadding())
+                    .fillMaxSize()
+            )
+        }
+        animatedComposable(
+            NavigationScreen.SecurityQuestionScreen.route,
+            animType = NavAnimType.SlideAndFade
+        ) {
+            val viewModel = hiltViewModel<SecurityQuestionViewModel>()
+            SecurityQuestionScreen(
+                viewModel = viewModel,
+                isUnlockMode = false,
+                modifier = Modifier
                     .padding(top = innerPadding.calculateTopPadding())
                     .fillMaxSize()
             )

@@ -1,6 +1,7 @@
 package com.tapbi.spark.voiceai.data.preferences
 
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 
@@ -17,4 +18,6 @@ object PrefKeys {
     val IS_PATTERN_LOCK_ENABLED = booleanPreferencesKey("IS_PATTERN_LOCK_ENABLED")
     val PATTERN_LOCK_DATA = stringPreferencesKey("PATTERN_LOCK_DATA")
     val IS_FINGERPRINT_ENABLED = booleanPreferencesKey("IS_FINGERPRINT_ENABLED")
+    val SECURITY_QUESTION_INDEX = intPreferencesKey("SECURITY_QUESTION_INDEX")
+    val SECURITY_ANSWER = stringPreferencesKey("SECURITY_ANSWER")
 }

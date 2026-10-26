@@ -80,6 +80,8 @@ class MainActivity : BaseActivity<MainViewModel>(), BillingManager.OnBillingList
             val isPattern = preferencesDataStoreHelper.getBoolean(PrefKeys.IS_PATTERN_LOCK_ENABLED, false)
             val patternStr = preferencesDataStoreHelper.getString(PrefKeys.PATTERN_LOCK_DATA, "")
             val isFingerprint = preferencesDataStoreHelper.getBoolean(PrefKeys.IS_FINGERPRINT_ENABLED, false)
+            val qIndex = preferencesDataStoreHelper.getInt(PrefKeys.SECURITY_QUESTION_INDEX, 0)
+            val qAnswer = preferencesDataStoreHelper.getString(PrefKeys.SECURITY_ANSWER, "")
 
             LockScreenState.isLockScreenActive = isActive
             LockScreenState.isVoiceLockEnabled = isVoice
@@ -92,6 +94,8 @@ class MainActivity : BaseActivity<MainViewModel>(), BillingManager.OnBillingList
                 LockScreenState.targetPattern = patternStr.split(",").mapNotNull { it.trim().toIntOrNull() }
             }
             LockScreenState.isFingerprintEnabled = isFingerprint
+            LockScreenState.securityQuestionIndex = qIndex
+            LockScreenState.securityAnswer = qAnswer
 
             if (isActive && hasOverlayPermission()) {
                 val intent = Intent(this@MainActivity, LockScreenService::class.java)

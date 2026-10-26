@@ -50,6 +50,8 @@ class HomeViewModel @Inject constructor(
             val isPattern = preferencesDataStoreHelper.getBoolean(PrefKeys.IS_PATTERN_LOCK_ENABLED, false)
             val patternStr = preferencesDataStoreHelper.getString(PrefKeys.PATTERN_LOCK_DATA, "")
             val isFingerprint = preferencesDataStoreHelper.getBoolean(PrefKeys.IS_FINGERPRINT_ENABLED, false)
+            val qIndex = preferencesDataStoreHelper.getInt(PrefKeys.SECURITY_QUESTION_INDEX, 0)
+            val qAnswer = preferencesDataStoreHelper.getString(PrefKeys.SECURITY_ANSWER, "")
 
             LockScreenState.isLockScreenActive = isActive
             LockScreenState.isVoiceLockEnabled = isVoice
@@ -62,6 +64,8 @@ class HomeViewModel @Inject constructor(
                 LockScreenState.targetPattern = patternStr.split(",").mapNotNull { it.trim().toIntOrNull() }
             }
             LockScreenState.isFingerprintEnabled = isFingerprint
+            LockScreenState.securityQuestionIndex = qIndex
+            LockScreenState.securityAnswer = qAnswer
 
             if (isActive && context.hasOverlayPermission()) {
                 val intent = Intent(context, LockScreenService::class.java)
@@ -174,6 +178,19 @@ class HomeViewModel @Inject constructor(
 
     fun onFingerprintClick(context: Context) {
         setupFingerprintAuth(context)
+    }
+
+    fun onSecurityQuestionSetupClick() {
+        navigation.openSecurityQuestionSetup()
+    }
+
+    fun saveSecurityQuestion(questionIndex: Int, answer: String) {
+        LockScreenState.securityQuestionIndex = questionIndex
+        LockScreenState.securityAnswer = answer.trim()
+        viewModelScope.launch {
+            preferencesDataStoreHelper.putInt(PrefKeys.SECURITY_QUESTION_INDEX, questionIndex)
+            preferencesDataStoreHelper.putString(PrefKeys.SECURITY_ANSWER, answer.trim())
+        }
     }
 
     private fun setupFingerprintAuth(context: Context) {

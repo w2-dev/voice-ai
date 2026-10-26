@@ -21,6 +21,8 @@ interface MainNavigator {
 
     fun openPinSetup()
 
+    fun openSecurityQuestionSetup()
+
     fun popBackStack()
 
     fun navigateTo(route: String)
@@ -78,6 +80,10 @@ internal class MainNavigatorImpl @Inject constructor(
 
     override fun openPinSetup() {
         routeNavigation.navigate(NavigationScreen.PinSetupScreen.route)
+    }
+
+    override fun openSecurityQuestionSetup() {
+        routeNavigation.navigate(NavigationScreen.SecurityQuestionScreen.route)
     }
 
     override fun popBackStack() {

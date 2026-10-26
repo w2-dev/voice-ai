@@ -74,12 +74,13 @@ fun HomeScreen(
             onSetupAiClick = { viewModel.onSetupAiProtectionClick() }
         )
 
-        // 2x2 Action Cards
+        // Setup Action Cards
         SetupActionGrid(
             onVoiceSetup = { viewModel.onVoiceSetupClick() },
             onPinSetup = { viewModel.onPinSetupClick() },
             onPatternSetup = { viewModel.onPatternSetupClick() },
-            onFingerprintSetup = { viewModel.onFingerprintClick(context) }
+            onFingerprintSetup = { viewModel.onFingerprintClick(context) },
+            onSecurityQuestionSetup = { viewModel.onSecurityQuestionSetupClick() }
         )
 
         // Bottom Banner: Lock Screen Themes
@@ -324,7 +325,8 @@ private fun SetupActionGrid(
     onVoiceSetup: () -> Unit,
     onPinSetup: () -> Unit,
     onPatternSetup: () -> Unit,
-    onFingerprintSetup: () -> Unit
+    onFingerprintSetup: () -> Unit,
+    onSecurityQuestionSetup: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -379,6 +381,16 @@ private fun SetupActionGrid(
                 onClick = onFingerprintSetup
             )
         }
+
+        // Security Question Setup
+        ActionCard(
+            modifier = Modifier.fillMaxWidth(),
+            gradient = Brush.linearGradient(listOf(Color(0xFFB39DDB), Color(0xFF9575CD))),
+            title = "Security Question",
+            subtitle = "(Emergency unlock option)",
+            icon = { Text(text = "❓", fontSize = 28.sp) },
+            onClick = onSecurityQuestionSetup
+        )
     }
 }
 
@@ -520,7 +532,11 @@ private fun WaveformIcon(modifier: Modifier = Modifier) {
         val c = Offset(w / 2f, h / 2f)
         val r = w / 2f
         drawCircle(color = Color(0xFFE1F5FE), radius = r)
-        drawCircle(color = Color(0xFFB3E5FC), radius = r * 0.85f, style = Stroke(width = 1.dp.toPx()))
+        drawCircle(
+            color = Color(0xFFB3E5FC),
+            radius = r * 0.85f,
+            style = Stroke(width = 1.dp.toPx())
+        )
 
         val barWidth = 2.5.dp.toPx()
         val heights = listOf(0.3f, 0.6f, 0.9f, 0.5f, 0.8f, 0.4f)
@@ -546,7 +562,11 @@ private fun PinIcon(modifier: Modifier = Modifier) {
         val h = size.height
         val r = w / 2f
         drawCircle(color = Color(0xFFFFF8E1), radius = r)
-        drawCircle(color = Color(0xFFFFECB3), radius = r * 0.85f, style = Stroke(width = 1.dp.toPx()))
+        drawCircle(
+            color = Color(0xFFFFECB3),
+            radius = r * 0.85f,
+            style = Stroke(width = 1.dp.toPx())
+        )
 
         val dotR = 2.5.dp.toPx()
         val startX = w * 0.3f
@@ -570,7 +590,11 @@ private fun PatternIcon(modifier: Modifier = Modifier) {
         val h = size.height
         val r = w / 2f
         drawCircle(color = Color(0xFFFFEBEE), radius = r)
-        drawCircle(color = Color(0xFFFFCDD2), radius = r * 0.85f, style = Stroke(width = 1.dp.toPx()))
+        drawCircle(
+            color = Color(0xFFFFCDD2),
+            radius = r * 0.85f,
+            style = Stroke(width = 1.dp.toPx())
+        )
 
         val dotR = 2.dp.toPx()
         val offsets = listOf(
@@ -601,7 +625,11 @@ private fun FingerprintIcon(modifier: Modifier = Modifier) {
         val h = size.height
         val r = w / 2f
         drawCircle(color = Color(0xFFFFF3E0), radius = r)
-        drawCircle(color = Color(0xFFFFE0B2), radius = r * 0.85f, style = Stroke(width = 1.dp.toPx()))
+        drawCircle(
+            color = Color(0xFFFFE0B2),
+            radius = r * 0.85f,
+            style = Stroke(width = 1.dp.toPx())
+        )
 
         for (i in 1..3) {
             val arcSize = Size(w * 0.22f * i, h * 0.22f * i)
@@ -610,7 +638,10 @@ private fun FingerprintIcon(modifier: Modifier = Modifier) {
                 startAngle = 180f,
                 sweepAngle = 180f,
                 useCenter = false,
-                topLeft = Offset(w / 2f - arcSize.width / 2f, h / 2f - arcSize.height / 2f + i * 2.dp.toPx()),
+                topLeft = Offset(
+                    w / 2f - arcSize.width / 2f,
+                    h / 2f - arcSize.height / 2f + i * 2.dp.toPx()
+                ),
                 style = Stroke(width = 1.5.dp.toPx())
             )
         }
@@ -643,7 +674,8 @@ private fun PaletteWheelIcon(modifier: Modifier = Modifier) {
         val r = w / 2f
         drawCircle(color = Color.White, radius = r)
 
-        val colors = listOf(Color(0xFFE57373), Color(0xFFFFB74D), Color(0xFF81D4FA), Color(0xFFAED581))
+        val colors =
+            listOf(Color(0xFFE57373), Color(0xFFFFB74D), Color(0xFF81D4FA), Color(0xFFAED581))
         val dotR = r * 0.22f
         val angles = listOf(0f, 90f, 180f, 270f)
 
