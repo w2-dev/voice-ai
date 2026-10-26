@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Base Jetpack</string>
+    <string name="link_policy" translatable="false">https://policies.google.com/privacy</string>
+    <string name="link_share_app" translatable="false">\"\https://play.google.com/store/apps/details?id=\"</string>
+    <string name="link_share_market" translatable="false">\"\market://details?id=\"</string>
+    <string name="email" translatable="false">"testshare@gmail.com"</string>
+</resources>

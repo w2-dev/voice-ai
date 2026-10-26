@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ironsource_app" translatable="false">e9297561</string>
+    <!--admob-->
+    <string name="admob_app_id" translatable="false">ca-app-pub-3940256099942544~3347511713</string>
+    <array name="admob_id_open_app">
+        <item>ca-app-pub-3940256099942544/9257395921</item>
+    </array>
+    <array name="admob_full_id">
+        <item>ca-app-pub-3940256099942544/1033173712</item>
+    </array>
+    <array name="admob_video_reward_id">
+        <item>ca-app-pub-3940256099942544/5224354917</item>
+    </array>
+    <array name="admob_native_id_interstitial">
+        <item>ca-app-pub-3940256099942544/2247696110</item>
+    </array>
+    <array name="admob_native_language">
+        <item>ca-app-pub-3940256099942544/2247696110</item>
+    </array>
+    <array name="admob_native_home">
+        <item>ca-app-pub-3940256099942544/2247696110</item>
+    </array>
+    <string name="admob_banner_language" translatable="false">ca-app-pub-3940256099942544/9214589741</string>
+    <!--admob-->
+
+    <!--applovin for dev -->
+    <string name="applovin_sdk_key" translatable="false">8tzHmVzO2RTSGw_Zn_JbB25mkbZpSCg6peEkO9bxE8mCP1rT_QQNT6d79XmTM9qmq74HgLLsfoMvs_xlu1KQ16</string>
+    <array name="applovin_id_ads_open">
+        <item>413984c574766b2e</item>
+    </array>
+    <array name="applovin_id_ads_interstitial">
+        <item>c9638fd386ac26f8</item>
+    </array>
+    <array name="applovin_id_ads_reward">
+        <item>eb2dd406960e6661</item>
+    </array>
+    <array name="applovin_id_native_interstitial">
+        <item>89d6ae25c73248df</item>
+    </array>
+    <array name="applovin_native_language">
+        <item>89d6ae25c73248df</item>
+    </array>
+    <array name="applovin_native_home">
+        <item>89d6ae25c73248df</item>
+    </array>
+    <string name="applovin_banner_language" translatable="false">c1db37c89406332c</string>
+    <!--applovin for dev -->
+
+    <!--billing-->
+    <string-array name="subscription_list">
+        <item name="purchase_pro_id_sub_month" translatable="false">tapbi_subscription_month</item>
+        <item name="purchase_pro_id_sub_year" translatable="false">tapbi_subscription_year</item>
+        <item name="purchase_pro_id_sub_week" translatable="false">tapbi_subscription_week</item>
+    </string-array>
+    <string name="purchase_pro_id_permanently" translatable="false">tapbi_subscription_permanently</string>
+    <!--billing-->
+</resources>

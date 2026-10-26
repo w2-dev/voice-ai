@@ -1,0 +1,126 @@
+<resources>
+    <string name="english" translatable="false">English</string>
+    <string name="german" translatable="false">Deutsch</string>
+    <string name="spanish" translatable="false">Español</string>
+    <string name="french" translatable="false">Français</string>
+    <string name="indian_hindi" translatable="false">भारतीय (हिंदी)</string>
+    <string name="italian" translatable="false">Italiana</string>
+    <string name="indonesian" translatable="false">Indonesia</string>
+    <string name="japanese" translatable="false">日本語</string>
+    <string name="korean" translatable="false">한국인</string>
+    <string name="portuguese" translatable="false">Portuguese</string>
+    <string name="russian" translatable="false">Русский</string>
+    <string name="thai" translatable="false">แบบไทย</string>
+    <string name="vn" translatable="false">Tiếng Việt</string>
+    <string name="please_rate_5_star">Please rate 5 star!</string>
+    <string name="no_internet_connection_found_check_your_connection">No internet connection found check your connection</string>
+    <string name="purchase_success">Purchase Success</string>
+    <string name="no_internet">No Internet</string>
+    <string name="one_time_payment">One-time payment</string>
+    <string name="upgrade_now">Upgrade Now</string>
+    <string name="privacy_policy">Privacy Policy</string>
+    <string name="retry">Retry</string>
+    <string name="you_need_to_enable_permissions">You need to enable permissions</string>
+    <string name="go_to_setting">Go to setting</string>
+    <string name="go_back">Go to back</string>
+    <string name="dialer">Dialer</string>
+    <string name="phone">Phone</string>
+    <string name="customize">Customize</string>
+    <string name="my_theme">My Theme</string>
+    <string name="setting">Settings</string>
+    <string name="place_holder">Place Holder</string>
+    <string name="please_grant_the_following_permission">Please grant the following permission to show theme on %1$s</string>
+    <string name="home">Home</string>
+    <string name="preview">Preview</string>
+    <string name="edit">Edit</string>
+    <string name="apply">Apply</string>
+    <string name="recent">Recent</string>
+    <string name="cancel_text">Cancel</string>
+    <string name="album">Album</string>
+    <string name="delete">Delete</string>
+    <string name="duplicate">Duplicate</string>
+    <string name="languages">Languages</string>
+    <string name="caller_flash">Caller Flash</string>
+    <string name="vibrate">Vibrate</string>
+    <string name="share">Share</string>
+    <string name="feedback">Feedback</string>
+    <string name="ring_tones">Ring Tones</string>
+    <string name="choose_ringtone">Choose Ringtone</string>
+    <string name="rate_us">Rate Us</string>
+    <string name="not_now">Not Now</string>
+    <string name="submit">Submit</string>
+    <string name="enjoy_your_calling_experience">Enjoy your calling experience</string>
+    <string name="simply_set_a_theme_to_enjoy_stunning_our_effects">Simply set a theme to enjoy stunning our effects</string>
+    <string name="easy_to_create_your_own_call">Easy to create your own call</string>
+    <string name="personalize_your_call_theme">Personalize your call theme</string>
+    <string name="flash_effect_on_incoming_call">Flash effect on incoming call</string>
+    <string name="turn_on_caller_flash_in_setting_page">"Turn on caller flash in setting page"</string>
+    <string name="favourite_girly">Girly</string>
+    <string name="favourite_vintage">Vintage</string>
+    <string name="favourite_cartoon">Cartoon</string>
+    <string name="favourite_simple">Simple</string>
+    <string name="unknown_caller">Unknown Caller</string>
+    <string name="error">Error</string>
+    <string name="permission_warning">Without permission, these great call themes will not be installed on your phone.</string>
+    <string name="contact_and_storage">Contact and storage</string>
+    <string name="to_use_set_ringtone_for_app">To use set ringtone for app</string>
+    <string name="change_system_settings">Change system settings</string>
+    <string name="continue_text"><u>Continue</u></string>
+    <string name="choose_this_template">Choose this template</string>
+    <string name="next"><u>Next</u></string>
+    <string name="next_anti_underscore">Next</string>
+    <string name="how_s_your_experience_so_far">How’s your experience so far?</string>
+    <string name="decline">Decline</string>
+    <string name="accept">Accept</string>
+    <string name="we_d_love_to_know">We\'d love to know</string>
+    <string name="choose_your_favorite_call_theme">Choose your favorite Call Theme</string>
+    <string name="call_icon">Call Icon</string>
+    <string name="wallpaper">Wallpaper</string>
+    <string name="you_re_given_call_screen_access_to_selected_only_few_photos">You’re given %1$s access to selected only few photos.</string>
+    <string name="manager">Manager</string>
+    <string name="change_settings">Change Settings</string>
+    <string name="select_more_photos">Select more photos</string>
+    <string name="all_photos">All photos</string>
+    <string name="please_select_a_photo">Please select a photo</string>
+    <string name="please_allow_call_screen_to_display_incoming_calls">Please allow %1$s to display incoming calls</string>
+    <string name="default_phone_app_not_granted">Default phone app not granted</string>
+    <string name="pro">Pro</string>
+    <string name="delete_this_theme">Delete This Theme ?</string>
+    <string name="this_will_be_deleted_in_this_list">This will be deleted in this list</string>
+    <string name="set_call_theme">Set Call Theme</string>
+    <string name="you_need_to_upgrade_to_premium">You need to upgrade to premium</string>
+    <string name="to_turn_on_phone_calls_contacts">To turn on phone calls contacts.</string>
+    <string name="upgrades_to_premium_and_get">Upgrades to Premium and get:</string>
+    <string name="remove_all_ads">Remove all ads</string>
+    <string name="unlimited_call_screen_icons">Unlimited call screen, icons</string>
+    <string name="successfully_applied">Successfully applied</string>
+    <string name="mute">Mute</string>
+    <string name="keyboard">Keyboard</string>
+    <string name="audio">Audio</string>
+    <string name="hide">Hide</string>
+    <string name="yearly_plan_cancel_anytime">Yearly plan, cancel anytime.</string>
+    <string name="calling_mobile">Calling mobile …</string>
+    <string name="_16_month_only">$16/month only</string>>
+    <string name="theme_saved_successfully">Theme saved successfully</string>
+    <string name="saved_theme">Saved Theme</string>
+    <string name="no_template_created_yet">No template created yet!</string>
+    <string name="connect_to_network_to_get_data">Connect to network to get data</string>
+    <string name="get_data">Get Data</string>
+    <string name="unknown">unknown</string>
+    <string name="success">Success</string>
+    <string name="fail">Fail</string>
+    <string name="ringing">Ringing…</string>
+    <string name="you_have_already_rated">You have already rated</string>
+    <string name="download_failed">Download failed</string>
+    <string name="pro_purchase_sale_off">Saved 50%</string>
+    <string name="popup_in_background">Popup in background</string>
+    <string name="used_to_display_calls_when_the_application_is_exited">Used to display calls when the application is exited</string>
+    <string name="please_check_your_internet_and_retry">Please check your internet and retry</string>
+    <string name="the_device_is_not_supported">The device is not supported</string>
+    <string name="rate_successfully">Rate successfully</string>
+    <string name="apply_this_theme">Apply this theme</string>
+    <string name="no_internet_connection_found_ncheck_your_connection">No Internet Connection found\nCheck your connection</string>
+    <string name="loading">Loading</string>
+
+
+</resources>

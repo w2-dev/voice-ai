@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--tag ads-->
+    <string name="tag_native_language" translatable="false">language</string>
+    <string name="tag_native_home" translatable="false">home</string>
+
+    <string name="tag_banner_language" translatable="false">language</string>
+
+    <string name="tag_inter_finish_onboard" translatable="false">finish_onboard</string>
+    <string name="tag_inter_open" translatable="false">open</string>
+
+    <string name="tag_reward_finish_onboard" translatable="false">finish_onboard</string>
+    <!--tag ads-->
+
+</resources>

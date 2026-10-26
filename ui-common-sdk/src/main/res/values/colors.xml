@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primaryAppColor">#FFD755</color>
+    <color name="app_background">#FF000000</color>
+
+    <color name="black">#FF000000</color>
+    <color name="black_20">#33000000</color>
+    <color name="black_60">#3C000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="bg_ads">#424242</color>
+    <color name="bg_ads_same_white">#F7F7F7</color>
+    <color name="white_600">#99FFFFFF</color>
+    <color name="transparent">#00FFFFFF</color>
+    <color name="color_66000000">#66000000</color>
+    <color name="gray">#4C4C4C</color>
+    <color name="dark_charcoal">#1D1D1D</color>
+    <color name="semi_transparent_dark_gray">#5A5A5D66</color>
+    <color name="color_757575">#757575</color>
+    <color name="dark_gray_200">#3A3A3D</color>
+    <color name="background_wallpaper_item_color">#1E1E1E</color>
+    <color name="dark_gray_900">#202020</color>
+    <color name="dark_gray">#5A5A5D</color>
+    <color name="divider">#E9E9EA</color>
+    <color name="color_302F2F">#302F2F</color>
+    <color name="color_8D8F94">#8D8F94</color>
+    <color name="color_333333">#333333</color>
+    <color name="color_2C2C2C">#2C2C2C</color>
+    <color name="color_B0B0B0">#B0B0B0</color>
+    <color name="color_616161">#616161</color>
+    <color name="color_333120">#333120</color>
+    <color name="color_FFC300">#FFC300</color>
+    <color name="color_26FFFFFF">#26FFFFFF</color>
+    <color name="color_A099A9">#A099A9</color>
+    <color name="color_DFDFDF">#DFDFDF</color>
+    <color name="color_64C365">#64C365</color>
+    <color name="color_5A584B">#5A584B</color>
+    <color name="color_404040">#404040</color>
+    <color name="color_8E8E93">#8E8E93</color>
+    <color name="color_33FFFFFF">#33FFFFFF</color>
+    <color name="color_33000000">#33000000</color>
+    <color name="eeeeef">#EEEEEF</color>
+
+    <color name="color_1A1A1A">#1A1A1A</color>
+    <color name="color_676767">#676767</color>
+    <color name="color_C2EFFF">#C2EFFF</color>
+    <color name="color_164564">#164564</color>
+
+
+
+    <color name="green_700">#388E3C</color>
+
+    <color name="red_700">#D32F2F</color>
+
+    <color name="text_blue">#007AFF</color>
+
+<!--    phase 3-->
+    <color name="color_4E4E4E">#4E4E4E</color>
+
+
+</resources>

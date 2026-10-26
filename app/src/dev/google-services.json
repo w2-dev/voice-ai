@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "408423982925",
+    "project_id": "base-jetpack-4f242",
+    "storage_bucket": "base-jetpack-4f242.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:408423982925:android:9af2bde2c9e11a794a7904",
+        "android_client_info": {
+          "package_name": "com.tapbi.spark.basejetpackcompose"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB3-KhTsvWZAhhnu1bX74MPsiLYipdNiWM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
