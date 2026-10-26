@@ -10,14 +10,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tapbi.spark.ui_common_sdk.foundation.AppTheme
+import com.tapbi.spark.voiceai.common.Constant
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class SecurityQuestionActivity : AppCompatActivity() {
-
-    companion object {
-        const val ACTION_SECURITY_QUESTION_UNLOCK = "com.tapbi.spark.voiceai.ACTION_SECURITY_QUESTION_UNLOCK"
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,7 +30,7 @@ class SecurityQuestionActivity : AppCompatActivity() {
                         viewModel = viewModel,
                         isUnlockMode = true,
                         onSuccessUnlock = {
-                            val intent = Intent(ACTION_SECURITY_QUESTION_UNLOCK).apply {
+                            val intent = Intent(Constant.ACTION_SECURITY_QUESTION_UNLOCK).apply {
                                 setPackage(packageName)
                             }
                             sendBroadcast(intent)

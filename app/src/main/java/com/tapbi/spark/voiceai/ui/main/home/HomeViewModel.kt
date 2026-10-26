@@ -2,7 +2,6 @@ package com.tapbi.spark.voiceai.ui.main.home
 
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import androidx.biometric.BiometricManager
@@ -12,6 +11,7 @@ import com.tapbi.spark.voiceai.data.preferences.PrefKeys
 import com.tapbi.spark.voiceai.data.preferences.PreferencesDataStoreHelper
 import com.tapbi.spark.voiceai.extension.hasOverlayPermission
 import com.tapbi.spark.voiceai.extension.isAtLeastApi26
+import com.tapbi.spark.voiceai.extension.isAtLeastApi30
 import com.tapbi.spark.voiceai.extension.openOverlayPermissionSettings
 import com.tapbi.spark.voiceai.navigation.MainNavigator
 import com.tapbi.spark.voiceai.navigation.NavigationScreen
@@ -41,15 +41,20 @@ class HomeViewModel @Inject constructor(
 
     private fun loadPreferences() {
         viewModelScope.launch {
-            val isActive = preferencesDataStoreHelper.getBoolean(PrefKeys.IS_LOCK_SCREEN_ACTIVE, false)
-            val isVoice = preferencesDataStoreHelper.getBoolean(PrefKeys.IS_VOICE_LOCK_ENABLED, false)
+            val isActive =
+                preferencesDataStoreHelper.getBoolean(PrefKeys.IS_LOCK_SCREEN_ACTIVE, false)
+            val isVoice =
+                preferencesDataStoreHelper.getBoolean(PrefKeys.IS_VOICE_LOCK_ENABLED, false)
             val voicePass = preferencesDataStoreHelper.getString(PrefKeys.VOICE_PASSPHRASE, "")
-            val speechLang = preferencesDataStoreHelper.getString(PrefKeys.SELECTED_SPEECH_LANGUAGE, "vi-VN")
+            val speechLang =
+                preferencesDataStoreHelper.getString(PrefKeys.SELECTED_SPEECH_LANGUAGE, "vi-VN")
             val isPin = preferencesDataStoreHelper.getBoolean(PrefKeys.IS_PIN_LOCK_ENABLED, false)
             val pinPass = preferencesDataStoreHelper.getString(PrefKeys.PIN_PASSWORD, "")
-            val isPattern = preferencesDataStoreHelper.getBoolean(PrefKeys.IS_PATTERN_LOCK_ENABLED, false)
+            val isPattern =
+                preferencesDataStoreHelper.getBoolean(PrefKeys.IS_PATTERN_LOCK_ENABLED, false)
             val patternStr = preferencesDataStoreHelper.getString(PrefKeys.PATTERN_LOCK_DATA, "")
-            val isFingerprint = preferencesDataStoreHelper.getBoolean(PrefKeys.IS_FINGERPRINT_ENABLED, false)
+            val isFingerprint =
+                preferencesDataStoreHelper.getBoolean(PrefKeys.IS_FINGERPRINT_ENABLED, false)
             val qIndex = preferencesDataStoreHelper.getInt(PrefKeys.SECURITY_QUESTION_INDEX, 0)
             val qAnswer = preferencesDataStoreHelper.getString(PrefKeys.SECURITY_ANSWER, "")
 
@@ -61,20 +66,14 @@ class HomeViewModel @Inject constructor(
             LockScreenState.pinPassword = pinPass
             LockScreenState.isPatternLockEnabled = isPattern
             if (patternStr.isNotBlank()) {
-                LockScreenState.targetPattern = patternStr.split(",").mapNotNull { it.trim().toIntOrNull() }
+                LockScreenState.targetPattern =
+                    patternStr.split(",").mapNotNull { it.trim().toIntOrNull() }
             }
             LockScreenState.isFingerprintEnabled = isFingerprint
             LockScreenState.securityQuestionIndex = qIndex
             LockScreenState.securityAnswer = qAnswer
 
-            if (isActive && context.hasOverlayPermission()) {
-                val intent = Intent(context, LockScreenService::class.java)
-                if (isAtLeastApi26) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
-                }
-            }
+            ensureLockServiceStarted()
 
             _uiState.update {
                 it.copy(
@@ -84,6 +83,17 @@ class HomeViewModel @Inject constructor(
                     isPatternLockEnabled = isPattern,
                     isFingerprintEnabled = isFingerprint
                 )
+            }
+        }
+    }
+
+    fun ensureLockServiceStarted() {
+        if (LockScreenState.isLockScreenActive && context.hasOverlayPermission()) {
+            val intent = Intent(context, LockScreenService::class.java)
+            if (isAtLeastApi26) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
             }
         }
     }
@@ -184,18 +194,10 @@ class HomeViewModel @Inject constructor(
         navigation.openSecurityQuestionSetup()
     }
 
-    fun saveSecurityQuestion(questionIndex: Int, answer: String) {
-        LockScreenState.securityQuestionIndex = questionIndex
-        LockScreenState.securityAnswer = answer.trim()
-        viewModelScope.launch {
-            preferencesDataStoreHelper.putInt(PrefKeys.SECURITY_QUESTION_INDEX, questionIndex)
-            preferencesDataStoreHelper.putString(PrefKeys.SECURITY_ANSWER, answer.trim())
-        }
-    }
-
     private fun setupFingerprintAuth(context: Context) {
         val biometricManager = BiometricManager.from(context)
-        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        val authenticators =
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
         when (biometricManager.canAuthenticate(authenticators)) {
             BiometricManager.BIOMETRIC_SUCCESS -> {
                 LockScreenState.isFingerprintEnabled = true
@@ -203,11 +205,20 @@ class HomeViewModel @Inject constructor(
                     preferencesDataStoreHelper.putBoolean(PrefKeys.IS_FINGERPRINT_ENABLED, true)
                 }
                 _uiState.update { it.copy(isFingerprintEnabled = true) }
-                Toast.makeText(context, "✅ Đã bật mở khóa bằng Vân tay/Sinh trắc học!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    "✅ Đã bật mở khóa bằng Vân tay/Sinh trắc học!",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
+
             BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-                Toast.makeText(context, "Chưa cài đặt vân tay! Vui lòng cài đặt trước.", Toast.LENGTH_SHORT).show()
-                val enrollIntent = if (Build.VERSION.SDK_INT >= 30) {
+                Toast.makeText(
+                    context,
+                    "Chưa cài đặt vân tay! Vui lòng cài đặt trước.",
+                    Toast.LENGTH_SHORT
+                ).show()
+                val enrollIntent = if (isAtLeastApi30) {
                     Intent(Settings.ACTION_BIOMETRIC_ENROLL).apply {
                         putExtra(
                             Settings.EXTRA_BIOMETRIC_AUTHENTICATORS_ALLOWED,
@@ -219,8 +230,10 @@ class HomeViewModel @Inject constructor(
                 }
                 context.startActivity(enrollIntent)
             }
+
             else -> {
-                Toast.makeText(context, "Thiết bị không hỗ trợ sinh trắc học!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Thiết bị không hỗ trợ sinh trắc học!", Toast.LENGTH_SHORT)
+                    .show()
             }
         }
     }

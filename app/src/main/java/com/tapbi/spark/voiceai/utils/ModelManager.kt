@@ -15,21 +15,13 @@ import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
+import com.tapbi.spark.voiceai.common.Constant
+
 object ModelManager {
 
     private const val BUFFER_SIZE = 8192
 
-    // Official Zipformer ONNX Model URLs (.tar.bz2)
-    val LANGUAGE_MODEL_URLS = mapOf(
-        "vi-VN" to "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-vi-30M-int8-2026-02-09.tar.bz2",
-        "ru-RU" to "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-ru-int8-2025-04-20.tar.bz2",
-        "en-US" to "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-small-en-2023-06-26.tar.bz2",
-        "zh-CN" to "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-multi-zh-hans-2023-9-2.tar.bz2",
-        "ja-JP" to "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-ja-reazonspeech-2024-08-01.tar.bz2",
-        "ko-KR" to "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-korean-2024-06-24.tar.bz2",
-        "th-TH" to "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-thai-2024-06-20.tar.bz2",
-        "yue-HK" to "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-cantonese-2024-03-13.tar.bz2"
-    )
+    val LANGUAGE_MODEL_URLS get() = Constant.ZIPFORMER_MODEL_URLS
 
     fun isModelDownloaded(context: Context, languageCode: String): Boolean {
         if (languageCode == "vi-VN" || languageCode == "en-US") return true // Built-in assets fallback
@@ -82,7 +74,7 @@ object ModelManager {
         }
 
         // 2. Default: Load built-in asset model from assets/model/zipformer/
-        val assetFolder = "model/zipformer"
+        val assetFolder = Constant.MODEL_ZIPFORMER_ASSET_FOLDER
 
         Timber.d("Loading built-in Zipformer asset model from $assetFolder")
         val config = OfflineRecognizerConfig(
@@ -117,7 +109,8 @@ object ModelManager {
             connection.connectTimeout = 20000
             connection.readTimeout = 30000
             connection.requestMethod = "GET"
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android)")
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            connection.setRequestProperty("Accept", "*/*")
 
             val status = connection.responseCode
             if (status == HttpURLConnection.HTTP_MOVED_TEMP ||
@@ -168,7 +161,8 @@ object ModelManager {
             val connection = url.openConnection() as HttpURLConnection
             connection.connectTimeout = 20000
             connection.readTimeout = 60000
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android)")
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            connection.setRequestProperty("Accept", "*/*")
             connection.setRequestProperty("Accept-Encoding", "identity")
             connection.connect()
 

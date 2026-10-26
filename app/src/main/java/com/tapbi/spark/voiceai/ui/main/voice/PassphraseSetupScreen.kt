@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -27,8 +28,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import com.tapbi.spark.ui_common_sdk.components.ui.AnimateDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -179,6 +180,7 @@ fun PassphraseSetupScreen(
                     }
 
                     // Extract Speaker Embedding
+                    var extractedEmbedding: FloatArray? = null
                     var vectorPreview = ""
                     try {
                         val config = SpeakerEmbeddingExtractorConfig(
@@ -191,26 +193,39 @@ fun PassphraseSetupScreen(
                         val stream = extractor.createStream()
                         stream.acceptWaveform(rawAudioArray, 16000)
                         stream.inputFinished()
-                        val embedding = extractor.compute(stream)
+                        extractedEmbedding = extractor.compute(stream)
                         stream.release()
                         extractor.release()
 
-                        LockScreenState.referenceEmbedding = embedding
-                        vectorPreview = "Vector [96d]: [${embedding.take(4).joinToString(", ") { "%.2f".format(it) }}...]"
-                        Timber.d("Speaker Embedding extracted successfully (size = ${embedding.size})")
+                        vectorPreview = "Vector [96d]: [${extractedEmbedding.take(4).joinToString(", ") { "%.2f".format(it) }}...]"
+                        Timber.d("Speaker Embedding extracted successfully (size = ${extractedEmbedding.size})")
                     } catch (e: Throwable) {
                         Timber.e(e, "Error during SpeakerEmbeddingExtractor execution")
                         vectorPreview = "Lỗi trích xuất Vector: ${e.localizedMessage}"
                     }
 
+                    val isSuccessRecognition = zipformerText.isNotBlank() &&
+                            !zipformerText.contains("Không nhận diện", ignoreCase = true) &&
+                            !zipformerText.contains("Lỗi", ignoreCase = true)
+
                     withContext<Unit>(Dispatchers.Main) {
-                        viewModel.updateRecordedVectorInfo(vectorPreview)
-                        viewModel.updateRecordedPassphrase(zipformerText)
                         viewModel.setRecording(false)
-                        if (zipformerText != "Không nhận diện được từ" && LockScreenState.referenceEmbedding != null) {
-                            viewModel.updateStatusMessage("✅ Thành công! Đã lưu khẩu lệnh & Mẫu giọng nói chuẩn.")
+
+                        if (isSuccessRecognition) {
+                            viewModel.processEnrollmentStep(
+                                zipformerText,
+                                extractedEmbedding,
+                                vectorPreview
+                            ) { isSuccess, msg, isFinished ->
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            }
                         } else {
-                            viewModel.updateStatusMessage("⚠️ Đã ghi âm xong. Kiểm tra kết quả bên dưới.")
+                            Toast.makeText(
+                                context,
+                                "❌ Lần ${uiState.enrollmentStep} thất bại! Không nghe rõ từ, vui lòng thử lại.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            viewModel.updateStatusMessage("❌ Lần ${uiState.enrollmentStep} không nhận diện được từ! Thử lại.")
                         }
                     }
                 } else {
@@ -237,48 +252,71 @@ fun PassphraseSetupScreen(
         }
     }
 
-    // AlertDialog for Model Download Confirmation
-    if (uiState.showDownloadDialog) {
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissDownloadDialog() },
-            title = {
+    // Animated Dialog for Model Download Confirmation using AnimateDialog (DialogApp.kt)
+    AnimateDialog(
+        showDialog = uiState.showDownloadDialog,
+        onDismissRequest = { viewModel.dismissDownloadDialog() }
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.88f)
+                .padding(16.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Text(
                     text = "Tải Mô Hình Giọng Nói",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = Color(0xFF212121)
+                    color = Color(0xFF212121),
+                    textAlign = TextAlign.Center
                 )
-            },
-            text = {
+
+                Spacer(modifier = Modifier.height(12.dp))
+
                 Text(
                     text = "Mô hình Zipformer cho ${uiState.selectedLanguage} chưa có trên máy. Bạn có muốn tải về ngay để sử dụng không?",
                     fontSize = 14.sp,
-                    color = Color(0xFF616161)
+                    color = Color(0xFF616161),
+                    textAlign = TextAlign.Center
                 )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.confirmDownloadModel(context) {
-                            // Model downloaded successfully. User can tap Record when ready.
-                            viewModel.updateStatusMessage("✅ Đã tải xong mô hình ${uiState.selectedLanguage}! Chạm nút Record để bắt đầu ghi âm.")
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0288D1)),
-                    shape = RoundedCornerShape(16.dp)
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("Tải Về", color = Color.White)
-                }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = { viewModel.dismissDownloadDialog() },
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text("Hủy", color = Color(0xFF616161))
+                    OutlinedButton(
+                        onClick = { viewModel.dismissDownloadDialog() },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Hủy", color = Color(0xFF616161))
+                    }
+
+                    Button(
+                        onClick = {
+                            viewModel.confirmDownloadModel(context) {
+                                viewModel.updateStatusMessage("✅ Đã tải xong mô hình ${uiState.selectedLanguage}! Chạm nút Record để bắt đầu ghi âm.")
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0288D1)),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Tải Về", color = Color.White)
+                    }
                 }
             }
-        )
+        }
     }
 
     Column(
@@ -344,21 +382,70 @@ fun PassphraseSetupScreen(
 
         // Subtitles
         Text(
-            text = "First, create your unique voice passphrase",
+            text = "Nói khẩu lệnh 3 lần để ứng dụng ghi nhận chính xác",
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
             color = Color(0xFF757575),
             textAlign = TextAlign.Center
         )
-        Text(
-            text = "Make it personal and easy for you to remember",
-            fontSize = 14.sp,
-            color = Color(0xFF9E9E9E),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp)
-        )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 3-Step Enrollment Progress Indicator
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 8.dp)
+        ) {
+            for (step in 1..3) {
+                val isDone = step < uiState.enrollmentStep
+                val isCurrent = step == uiState.enrollmentStep
+                val stepColor = when {
+                    isDone -> Color(0xFF4CAF50)
+                    isCurrent -> Color(0xFF0288D1)
+                    else -> Color(0xFFE0E0E0)
+                }
+                val textColor = if (isDone || isCurrent) Color.White else Color(0xFF757575)
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(stepColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isDone) "✓" else "$step",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textColor
+                        )
+                    }
+                    Text(
+                        text = "Lần $step",
+                        fontSize = 13.sp,
+                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isCurrent) Color(0xFF0288D1) else Color(0xFF757575)
+                    )
+                }
+            }
+        }
+
+        if (uiState.enrollmentStep > 1) {
+            OutlinedButton(
+                onClick = { viewModel.resetEnrollment() },
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.padding(bottom = 8.dp)
+            ) {
+                Text("Làm Lại Từ Lần 1", color = Color(0xFF0288D1))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Status Message
         if (uiState.statusMessage.isNotBlank()) {

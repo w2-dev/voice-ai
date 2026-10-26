@@ -59,6 +59,7 @@ import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractor
 import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractorConfig
 import com.k2fsa.sherpa.onnx.Vad
 import com.k2fsa.sherpa.onnx.VadModelConfig
+import com.tapbi.spark.voiceai.common.Constant
 import com.tapbi.spark.voiceai.common.models.LockScreenState
 import com.tapbi.spark.voiceai.extension.hasRecordAudioPermission
 import com.tapbi.spark.voiceai.ui.main.biometric.BiometricActivity
@@ -139,19 +140,19 @@ fun LockOverlayContent(
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 when (intent?.action) {
-                    BiometricActivity.ACTION_BIOMETRIC_UNLOCK -> {
+                    Constant.ACTION_BIOMETRIC_UNLOCK -> {
                         biometricStatus = "✅ Xác thực vân tay thành công! Mở khóa..."
                         onUnlockClick()
                     }
-                    SecurityQuestionActivity.ACTION_SECURITY_QUESTION_UNLOCK -> {
+                    Constant.ACTION_SECURITY_QUESTION_UNLOCK -> {
                         onUnlockClick()
                     }
                 }
             }
         }
         val filter = IntentFilter().apply {
-            addAction(BiometricActivity.ACTION_BIOMETRIC_UNLOCK)
-            addAction(SecurityQuestionActivity.ACTION_SECURITY_QUESTION_UNLOCK)
+            addAction(Constant.ACTION_BIOMETRIC_UNLOCK)
+            addAction(Constant.ACTION_SECURITY_QUESTION_UNLOCK)
         }
         ContextCompat.registerReceiver(
             context,

@@ -1,7 +1,6 @@
 #CORE / BUILD
 [versions]
 agp = "9.4.1"
-biometric = "1.1.0"
 kotlin = "2.0.21"
 ksp = "2.0.21-1.0.28"
 room = "2.6.1"
@@ -39,6 +38,9 @@ constraintlayout = "2.2.2"
 
 #Coil
 coilCompose = "2.7.0"
+
+#BIOMETRIC
+biometric = "1.1.0"
 
 #LOGGING
 timber = "5.0.1"
