@@ -115,12 +115,18 @@ class VoiceRepository @Inject constructor(
         preferencesDataStoreHelper.putString(PrefKeys.SELECTED_SPEECH_LANGUAGE, languageCode)
     }
 
-    suspend fun savePassphraseAndEmbedding(passphrase: String, embedding: FloatArray) = withContext(Dispatchers.IO) {
+    suspend fun savePassphraseAndEmbedding(
+        passphrase: String,
+        embedding: FloatArray,
+        languageCode: String = LockScreenState.speechLanguageCode
+    ) = withContext(Dispatchers.IO) {
         LockScreenState.voicePassphrase = passphrase
         LockScreenState.referenceEmbedding = embedding
+        LockScreenState.speechLanguageCode = languageCode
         LockScreenState.isVoiceLockEnabled = true
 
         preferencesDataStoreHelper.putString(PrefKeys.VOICE_PASSPHRASE, passphrase)
+        preferencesDataStoreHelper.putString(PrefKeys.SELECTED_SPEECH_LANGUAGE, languageCode)
         preferencesDataStoreHelper.putBoolean(PrefKeys.IS_VOICE_LOCK_ENABLED, true)
     }
 

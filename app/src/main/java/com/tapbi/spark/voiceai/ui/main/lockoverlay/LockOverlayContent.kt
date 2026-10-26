@@ -18,7 +18,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +30,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -72,7 +72,6 @@ import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.SwipeUnlockBar
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.UnlockMethodChip
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.VoiceUnlockContent
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.themes.OverlayThemeConfig
-import com.tapbi.spark.voiceai.ui.main.security.SecurityQuestionActivity
 import com.tapbi.spark.voiceai.utils.ModelManager
 import com.tapbi.spark.voiceai.utils.cosineDistance
 import com.tapbi.spark.voiceai.utils.stringSimilarity
@@ -144,6 +143,7 @@ fun LockOverlayContent(
                         biometricStatus = "✅ Xác thực vân tay thành công! Mở khóa..."
                         onUnlockClick()
                     }
+
                     Constant.ACTION_SECURITY_QUESTION_UNLOCK -> {
                         onUnlockClick()
                     }
@@ -188,7 +188,8 @@ fun LockOverlayContent(
                     val sampleRate = 16000
                     val channelConfig = AudioFormat.CHANNEL_IN_MONO
                     val audioFormat = AudioFormat.ENCODING_PCM_16BIT
-                    val minBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+                    val minBufferSize =
+                        AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
 
                     if (ContextCompat.checkSelfPermission(
                             context,
@@ -212,7 +213,8 @@ fun LockOverlayContent(
                             val readSize = recorder.read(buffer, 0, buffer.size)
                             if (readSize > 0) {
                                 for (i in 0 until readSize step 2) {
-                                    val s = ((buffer[i + 1].toInt() shl 8) or (buffer[i].toInt() and 0xFF)).toShort()
+                                    val s =
+                                        ((buffer[i + 1].toInt() shl 8) or (buffer[i].toInt() and 0xFF)).toShort()
                                     audioData.add(s / 32768.0f)
                                 }
                             }
@@ -255,9 +257,21 @@ fun LockOverlayContent(
                         }
 
                         // 2. Zipformer ASR Text Match
+                        val activeLangCode = LockScreenState.speechLanguageCode
+                        if (!ModelManager.isModelDownloaded(context, activeLangCode)) {
+                            withContext(Dispatchers.Main) {
+                                isRecording = false
+                                voiceStatus = "⚠️ Vui lòng mở App tải mô hình cho $activeLangCode!"
+                            }
+                            return@launch
+                        }
+
                         var zipformerText = ""
                         try {
-                            val recognizer = ModelManager.createRecognizer(context, LockScreenState.speechLanguageCode)
+                            val recognizer = ModelManager.createRecognizer(
+                                context,
+                                activeLangCode
+                            )
                             val offlineStream = recognizer.createStream()
                             offlineStream.acceptWaveform(rawAudioArray, 16000)
                             recognizer.decode(offlineStream)
@@ -296,7 +310,10 @@ fun LockOverlayContent(
                                 stream.release()
                                 extractor.release()
 
-                                calculatedDist = cosineDistance(testEmbedding, LockScreenState.referenceEmbedding!!)
+                                calculatedDist = cosineDistance(
+                                    testEmbedding,
+                                    LockScreenState.referenceEmbedding!!
+                                )
                                 if (calculatedDist < 0.45f) {
                                     isSpeakerMatched = true
                                 }
@@ -310,7 +327,10 @@ fun LockOverlayContent(
                         // Check Keyword Similarity
                         val targetKeyword = LockScreenState.voicePassphrase
                         val similarity = if (targetKeyword.isNotBlank()) {
-                            stringSimilarity(zipformerText.lowercase().trim(), targetKeyword.lowercase().trim())
+                            stringSimilarity(
+                                zipformerText.lowercase().trim(),
+                                targetKeyword.lowercase().trim()
+                            )
                         } else {
                             0.0
                         }
@@ -327,9 +347,14 @@ fun LockOverlayContent(
 
                         withContext(Dispatchers.Main) {
                             isRecording = false
-                            recognizedTextInfo = if (zipformerText.isNotBlank()) "ASR Text: \"$zipformerText\"" else "ASR Text: (Không nhận diện từ)"
+                            recognizedTextInfo =
+                                if (zipformerText.isNotBlank()) "ASR Text: \"$zipformerText\"" else "ASR Text: (Không nhận diện từ)"
                             vectorDistInfo = if (LockScreenState.referenceEmbedding != null) {
-                                "Cosine Distance: ${"%.4f".format(calculatedDist)} (Ngưỡng < 0.45) | Similarity: ${"%.1f".format(similarity * 100)}%"
+                                "Cosine Distance: ${"%.4f".format(calculatedDist)} (Ngưỡng < 0.45) | Similarity: ${
+                                    "%.1f".format(
+                                        similarity * 100
+                                    )
+                                }%"
                             } else {
                                 "Similarity: ${"%.1f".format(similarity * 100)}%"
                             }
@@ -445,7 +470,10 @@ fun LockOverlayContent(
 
                 // Unlock Method Selector Buttons
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    horizontalArrangement = Arrangement.spacedBy(
+                        8.dp,
+                        Alignment.CenterHorizontally
+                    ),
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -516,6 +544,7 @@ fun LockOverlayContent(
                             voiceStatus = voiceStatus,
                             recognizedTextInfo = recognizedTextInfo,
                             vectorDistInfo = vectorDistInfo,
+                            languageCode = LockScreenState.speechLanguageCode,
                             themeConfig = themeConfig,
                             onMicrophoneClick = { startVoiceRecognition() }
                         )

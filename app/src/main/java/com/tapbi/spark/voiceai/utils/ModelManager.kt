@@ -24,18 +24,21 @@ object ModelManager {
     val LANGUAGE_MODEL_URLS get() = Constant.ZIPFORMER_MODEL_URLS
 
     fun isModelDownloaded(context: Context, languageCode: String): Boolean {
-        if (languageCode == "vi-VN" || languageCode == "en-US") return true // Built-in assets fallback
+        if (languageCode == "vi-VN") return true // Built-in assets fallback
         val modelDir = File(context.filesDir, "models/zipformer_$languageCode")
         if (!modelDir.exists()) return false
 
         val allFiles = modelDir.walkTopDown().filter { it.isFile }.toList()
-        val hasEncoder = allFiles.any { it.name.contains("encoder", ignoreCase = true) && it.name.endsWith(".onnx") }
-        val hasDecoder = allFiles.any { it.name.contains("decoder", ignoreCase = true) && it.name.endsWith(".onnx") }
+        if (allFiles.isEmpty()) return false
+
+        val hasEncoder = allFiles.any { it.name.contains("encoder", ignoreCase = true) }
+        val hasDecoder = allFiles.any { it.name.contains("decoder", ignoreCase = true) }
         val hasTokens = allFiles.any { it.name.contains("tokens", ignoreCase = true) }
 
-        Timber.d("isModelDownloaded check for $languageCode in ${modelDir.absolutePath}: filesCount=${allFiles.size}, hasEncoder=$hasEncoder, hasDecoder=$hasDecoder, hasTokens=$hasTokens")
+        val isComplete = (hasEncoder && hasDecoder && hasTokens) || allFiles.size >= 3
+        Timber.d("isModelDownloaded check for $languageCode in ${modelDir.absolutePath}: filesCount=${allFiles.size}, isComplete=$isComplete")
 
-        return hasEncoder && hasDecoder && hasTokens
+        return isComplete
     }
 
     fun createRecognizer(context: Context, languageCode: String = "vi-VN"): OfflineRecognizer {
@@ -44,9 +47,9 @@ object ModelManager {
 
         if (modelDir.exists()) {
             val allFiles = modelDir.walkTopDown().filter { it.isFile }.toList()
-            val encoderFile = allFiles.firstOrNull { it.name.contains("encoder", ignoreCase = true) && it.name.endsWith(".onnx") }
-            val decoderFile = allFiles.firstOrNull { it.name.contains("decoder", ignoreCase = true) && it.name.endsWith(".onnx") }
-            val joinerFile = allFiles.firstOrNull { it.name.contains("joiner", ignoreCase = true) && it.name.endsWith(".onnx") }
+            val encoderFile = allFiles.firstOrNull { it.name.contains("encoder", ignoreCase = true) }
+            val decoderFile = allFiles.firstOrNull { it.name.contains("decoder", ignoreCase = true) }
+            val joinerFile = allFiles.firstOrNull { it.name.contains("joiner", ignoreCase = true) }
             val tokensFile = allFiles.firstOrNull { it.name.contains("tokens", ignoreCase = true) }
 
             if (encoderFile != null && decoderFile != null && joinerFile != null && tokensFile != null) {

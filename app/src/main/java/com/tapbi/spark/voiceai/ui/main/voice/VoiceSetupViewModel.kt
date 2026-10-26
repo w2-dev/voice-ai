@@ -212,6 +212,7 @@ class VoiceSetupViewModel @Inject constructor(
     }
 
     fun popBackStack() {
+        resetEnrollment()
         navigation.popBackStack()
     }
 

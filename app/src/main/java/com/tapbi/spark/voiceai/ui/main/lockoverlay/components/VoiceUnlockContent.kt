@@ -26,6 +26,7 @@ fun VoiceUnlockContent(
     voiceStatus: String,
     recognizedTextInfo: String,
     vectorDistInfo: String,
+    languageCode: String = "vi-VN",
     themeConfig: OverlayThemeConfig,
     onMicrophoneClick: () -> Unit
 ) {
@@ -46,7 +47,7 @@ fun VoiceUnlockContent(
         }
 
         Text(
-            text = if (isRecording) "Đang nghe..." else "Chạm micro nói mật khẩu",
+            text = if (isRecording) "Đang nghe ($languageCode)..." else "Chạm micro nói mật khẩu ($languageCode)",
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
             color = Color.White.copy(alpha = 0.9f)
