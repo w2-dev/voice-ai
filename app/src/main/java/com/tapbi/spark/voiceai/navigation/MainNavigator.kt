@@ -19,6 +19,8 @@ interface MainNavigator {
 
     fun openPatternSetup()
 
+    fun openPinSetup()
+
     fun popBackStack()
 
     fun navigateTo(route: String)
@@ -72,6 +74,10 @@ internal class MainNavigatorImpl @Inject constructor(
 
     override fun openPatternSetup() {
         routeNavigation.navigate(NavigationScreen.PatternSetupScreen.route)
+    }
+
+    override fun openPinSetup() {
+        routeNavigation.navigate(NavigationScreen.PinSetupScreen.route)
     }
 
     override fun popBackStack() {

@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -67,6 +68,7 @@ import com.tapbi.spark.voiceai.extension.hasRecordAudioPermission
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.OverlayClockHeader
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.SwipeUnlockBar
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.themes.OverlayThemeConfig
+import com.tapbi.spark.voiceai.ui.main.pin.PinKeyPad
 import com.tapbi.spark.voiceai.utils.ModelManager
 import com.tapbi.spark.voiceai.utils.cosineDistance
 import com.tapbi.spark.voiceai.utils.stringSimilarity
@@ -94,12 +96,13 @@ fun LockOverlayContent(
     var offsetY by remember { mutableFloatStateOf(0f) }
     val animatedOffsetY by animateFloatAsState(targetValue = offsetY, label = "offsetY")
 
-    // Default active method: VOICE if enabled, else FINGERPRINT, PATTERN, or SWIPE
+    // Default active method: VOICE if enabled, else FINGERPRINT, PIN, PATTERN, or SWIPE
     var selectedMethod by remember {
         mutableStateOf(
             when {
                 LockScreenState.isVoiceLockEnabled && LockScreenState.hasVoiceSetup -> OverlayUnlockMethod.VOICE
                 LockScreenState.isFingerprintEnabled -> OverlayUnlockMethod.FINGERPRINT
+                LockScreenState.isPinLockEnabled && LockScreenState.hasPinSetup -> OverlayUnlockMethod.PIN
                 LockScreenState.isPatternLockEnabled && LockScreenState.hasPatternSetup -> OverlayUnlockMethod.PATTERN
                 else -> OverlayUnlockMethod.SWIPE
             }
@@ -112,6 +115,8 @@ fun LockOverlayContent(
     var biometricStatus by remember { mutableStateOf("") }
     var isRecording by remember { mutableStateOf(false) }
     var isPatternError by remember { mutableStateOf(false) }
+    var pinInput by remember { mutableStateOf("") }
+    var isPinError by remember { mutableStateOf(false) }
 
     fun triggerBiometricUnlock() {
         biometricStatus = "Đang chờ xác thực vân tay / sinh trắc học..."
@@ -407,6 +412,19 @@ fun LockOverlayContent(
                     )
                 }
 
+                if (LockScreenState.isPinLockEnabled && LockScreenState.hasPinSetup) {
+                    UnlockMethodChip(
+                        icon = "🔢",
+                        label = "Mã PIN",
+                        isSelected = selectedMethod == OverlayUnlockMethod.PIN,
+                        onClick = {
+                            selectedMethod = OverlayUnlockMethod.PIN
+                            pinInput = ""
+                            isPinError = false
+                        }
+                    )
+                }
+
                 if (LockScreenState.isPatternLockEnabled && LockScreenState.hasPatternSetup) {
                     UnlockMethodChip(
                         icon = "🎨",
@@ -424,7 +442,7 @@ fun LockOverlayContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(280.dp),
+                    .heightIn(min = 280.dp, max = 340.dp),
                 contentAlignment = Alignment.Center
             ) {
                 this@Column.AnimatedVisibility(
@@ -524,6 +542,81 @@ fun LockOverlayContent(
                                 textAlign = TextAlign.Center
                             )
                         }
+                    }
+                }
+
+                this@Column.AnimatedVisibility(
+                    visible = selectedMethod == OverlayUnlockMethod.PIN,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = if (isPinError) "Mã PIN không đúng! Thử lại" else "Nhập mã PIN để mở khóa",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isPinError) Color(0xFFFF5252) else Color.White,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        ) {
+                            for (i in 0 until 4) {
+                                val isFilled = i < pinInput.length
+                                val dotColor = when {
+                                    isPinError -> Color(0xFFFF5252)
+                                    isFilled -> Color(0xFF29B6F6)
+                                    else -> Color.Transparent
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clip(CircleShape)
+                                        .background(dotColor)
+                                        .border(
+                                            width = 1.5.dp,
+                                            color = if (isPinError) Color(0xFFFF5252) else Color.White.copy(alpha = 0.8f),
+                                            shape = CircleShape
+                                        )
+                                )
+                            }
+                        }
+
+                        PinKeyPad(
+                            buttonSize = 52.dp,
+                            spacing = 10.dp,
+                            onDigitClick = { digit ->
+                                if (pinInput.length < 4) {
+                                    val newPin = pinInput + digit
+                                    pinInput = newPin
+                                    isPinError = false
+                                    if (newPin.length == 4) {
+                                        if (newPin == LockScreenState.pinPassword) {
+                                            onUnlockClick()
+                                        } else {
+                                            isPinError = true
+                                            pinInput = ""
+                                        }
+                                    }
+                                }
+                            },
+                            onDeleteClick = {
+                                if (pinInput.isNotEmpty()) {
+                                    pinInput = pinInput.dropLast(1)
+                                    isPinError = false
+                                }
+                            },
+                            onClearClick = {
+                                pinInput = ""
+                                isPinError = false
+                            }
+                        )
                     }
                 }
 

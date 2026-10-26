@@ -126,7 +126,7 @@ class HomeViewModel @Inject constructor(
 
     fun togglePinLock(enabled: Boolean) {
         if (enabled && !LockScreenState.hasPinSetup) {
-            // Require PIN setup
+            navigation.openPinSetup()
             return
         }
         LockScreenState.isPinLockEnabled = enabled
@@ -165,6 +165,7 @@ class HomeViewModel @Inject constructor(
     }
 
     fun onPinSetupClick() {
+        navigation.openPinSetup()
     }
 
     fun onPatternSetupClick() {

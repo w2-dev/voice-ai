@@ -11,4 +11,5 @@ sealed class NavigationScreen(
     data object VoiceSetupScreen : NavigationScreen("VoiceSetupScreen")
     data object PassphraseSetupScreen : NavigationScreen("PassphraseSetupScreen")
     data object PatternSetupScreen : NavigationScreen("PatternSetupScreen")
+    data object PinSetupScreen : NavigationScreen("PinSetupScreen")
 }

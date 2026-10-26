@@ -21,6 +21,8 @@ import com.tapbi.spark.voiceai.ui.main.onboard.OnboardScreen
 import com.tapbi.spark.voiceai.ui.main.onboard.OnboardViewModel
 import com.tapbi.spark.voiceai.ui.main.pattern.PatternSetupScreen
 import com.tapbi.spark.voiceai.ui.main.pattern.PatternSetupViewModel
+import com.tapbi.spark.voiceai.ui.main.pin.PinSetupScreen
+import com.tapbi.spark.voiceai.ui.main.pin.PinSetupViewModel
 import com.tapbi.spark.voiceai.ui.main.premium.PremiumScreen
 import com.tapbi.spark.voiceai.ui.main.premium.PremiumViewModel
 import com.tapbi.spark.voiceai.ui.main.splash.SplashScreen
@@ -106,6 +108,17 @@ fun Navigation(
         ) {
             val viewModel = hiltViewModel<PatternSetupViewModel>()
             PatternSetupScreen(
+                viewModel, modifier = Modifier
+                    .padding(top = innerPadding.calculateTopPadding())
+                    .fillMaxSize()
+            )
+        }
+        animatedComposable(
+            NavigationScreen.PinSetupScreen.route,
+            animType = NavAnimType.SlideAndFade
+        ) {
+            val viewModel = hiltViewModel<PinSetupViewModel>()
+            PinSetupScreen(
                 viewModel, modifier = Modifier
                     .padding(top = innerPadding.calculateTopPadding())
                     .fillMaxSize()
