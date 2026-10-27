@@ -41,6 +41,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.tapbi.spark.ui_common_sdk.components.ui.ButtonApp
+import com.tapbi.spark.ui_common_sdk.components.ui.ButtonAppStyle
 import com.tapbi.spark.ui_common_sdk.components.ui.PatternLock
 import com.tapbi.spark.voiceai.R
 import com.tapbi.spark.voiceai.ui.main.pattern.components.PatternStepperHeader
@@ -218,23 +220,22 @@ fun PatternSetupScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            OutlinedButton(
+            ButtonApp(
+                text = "Vẽ Lại",
                 onClick = { viewModel.resetSetup() },
+                style = ButtonAppStyle.CANCEL,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(20.dp)
-            ) {
-                Text("Đổi Kiểu / Vẽ Lại", color = Color(0xFF616161))
-            }
+            )
 
             if (isStepFinished) {
-                Button(
+                ButtonApp(
+                    text = "Xóa Mật Khẩu",
                     onClick = { viewModel.deletePattern() },
+                    style = ButtonAppStyle.DANGER,
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252)),
                     shape = RoundedCornerShape(20.dp)
-                ) {
-                    Text("Xóa Mật Khẩu", color = Color.White)
-                }
+                )
             }
         }
 

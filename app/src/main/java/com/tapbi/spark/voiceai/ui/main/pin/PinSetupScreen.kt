@@ -39,6 +39,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.tapbi.spark.ui_common_sdk.components.ui.ButtonApp
+import com.tapbi.spark.ui_common_sdk.components.ui.ButtonAppStyle
 import com.tapbi.spark.voiceai.R
 
 @Composable
@@ -210,24 +212,23 @@ fun PinSetupScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (showResetButton) {
-                OutlinedButton(
+                ButtonApp(
+                    text = "Nhập Lại",
                     onClick = { viewModel.resetSetup() },
+                    style = ButtonAppStyle.CANCEL,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(20.dp)
-                ) {
-                    Text("Nhập Lại", color = Color(0xFF616161))
-                }
+                )
             }
 
             if (isStepFinished) {
-                Button(
+                ButtonApp(
+                    text = "Xóa Mã PIN",
                     onClick = { viewModel.deletePin() },
+                    style = ButtonAppStyle.DANGER,
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252)),
                     shape = RoundedCornerShape(20.dp)
-                ) {
-                    Text("Xóa Mã PIN", color = Color.White)
-                }
+                )
             }
         }
 

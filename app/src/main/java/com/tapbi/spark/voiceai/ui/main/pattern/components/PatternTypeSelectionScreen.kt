@@ -42,6 +42,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tapbi.spark.ui_common_sdk.components.ui.ButtonApp
+import com.tapbi.spark.ui_common_sdk.components.ui.ButtonAppStyle
 import com.tapbi.spark.voiceai.R
 import androidx.compose.runtime.LaunchedEffect
 import com.tapbi.spark.voiceai.ui.main.pattern.PatternGridType
@@ -183,21 +185,13 @@ fun PatternTypeSelectionScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        Button(
+        ButtonApp(
+            text = "APPLY NOW",
             onClick = onApplyClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0288D1)),
+            style = ButtonAppStyle.OK,
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(26.dp)
-        ) {
-            Text(
-                text = "APPLY NOW",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-        }
+        )
     }
 }
 

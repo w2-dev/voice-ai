@@ -22,17 +22,32 @@ class SecurityQuestionViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(
         SecurityQuestionUiState(
-            selectedIndex = LockScreenState.securityQuestionIndex,
-            answerInput = if (LockScreenState.hasSecurityQuestionSetup) LockScreenState.securityAnswer else ""
+            selectedIndex = 0,
+            answerInput = ""
         )
     )
     val uiState = _uiState.asStateFlow()
+
+    fun resetState() {
+        _uiState.update {
+            it.copy(
+                selectedIndex = if (it.isUnlockMode) LockScreenState.securityQuestionIndex else 0,
+                answerInput = "",
+                isError = false,
+                isSuccess = false,
+                message = if (it.isUnlockMode) "Nhập câu trả lời để xác thực mở khóa" else "Thiết lập câu hỏi & câu trả lời bảo mật"
+            )
+        }
+    }
 
     fun setUnlockMode(isUnlock: Boolean) {
         _uiState.update {
             it.copy(
                 isUnlockMode = isUnlock,
-                answerInput = if (isUnlock) "" else LockScreenState.securityAnswer,
+                selectedIndex = if (isUnlock) LockScreenState.securityQuestionIndex else 0,
+                answerInput = "",
+                isError = false,
+                isSuccess = false,
                 message = if (isUnlock) "Nhập câu trả lời để xác thực mở khóa" else "Thiết lập câu hỏi & câu trả lời bảo mật"
             )
         }

@@ -9,6 +9,7 @@ import com.tapbi.spark.voiceai.data.repository.VoiceRepository
 import com.tapbi.spark.voiceai.navigation.MainNavigator
 import com.tapbi.spark.voiceai.navigation.NavigationScreen
 import com.tapbi.spark.voiceai.ui.base.BaseViewModel
+import com.tapbi.spark.voiceai.utils.ModelManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -67,6 +68,8 @@ class VoiceSetupViewModel @Inject constructor(
     }
 
     fun selectLanguage(context: Context, languageCode: String, languageName: String) {
+        ModelManager.clearCache()
+
         _uiState.update {
             it.copy(
                 selectedLanguage = languageName,
@@ -78,12 +81,21 @@ class VoiceSetupViewModel @Inject constructor(
             voiceRepository.saveSpeechLanguage(languageCode)
         }
 
-        if (voiceRepository.isModelDownloaded(context, languageCode)) {
+        val downloaded = voiceRepository.isModelDownloaded(context, languageCode)
+        if (downloaded) {
             _uiState.update {
                 it.copy(
                     showDownloadDialog = false,
                     isDownloadingModel = false,
-                    statusMessage = ""
+                    statusMessage = "✅ Đã tải xong mô hình $languageName!\nChạm nút Record để bắt đầu ghi âm."
+                )
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    showDownloadDialog = true,
+                    isDownloadingModel = false,
+                    statusMessage = "⚠️ Mô hình $languageName chưa có trên máy."
                 )
             }
         }
@@ -91,6 +103,7 @@ class VoiceSetupViewModel @Inject constructor(
 
     fun checkModelAndRecord(context: Context): Boolean {
         val currentLangCode = _uiState.value.languageCode
+        val currentLangName = _uiState.value.selectedLanguage
         val downloaded = voiceRepository.isModelDownloaded(context, currentLangCode)
         Timber.d("checkModelAndRecord: languageCode = $currentLangCode, isDownloaded = $downloaded")
 
@@ -99,12 +112,17 @@ class VoiceSetupViewModel @Inject constructor(
                 it.copy(
                     showDownloadDialog = false,
                     isDownloadingModel = false,
-                    statusMessage = ""
+                    statusMessage = "✅ Đã tải xong mô hình $currentLangName!\nChạm nút Record để bắt đầu ghi âm."
                 )
             }
             return true
         } else {
-            _uiState.update { it.copy(showDownloadDialog = true) }
+            _uiState.update {
+                it.copy(
+                    showDownloadDialog = true,
+                    statusMessage = "⚠️ Mô hình $currentLangName chưa có trên máy."
+                )
+            }
             return false
         }
     }
@@ -126,7 +144,10 @@ class VoiceSetupViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         downloadProgress = progress,
-                        statusMessage = "Đang tải $langName: $progress%"
+                        statusMessage = if (progress >= 100)
+                            "Đang giải nén $langName... vui lòng đợi"
+                        else
+                            "Đang tải $langName: $progress%"
                     )
                 }
             }

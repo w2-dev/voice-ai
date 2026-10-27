@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -41,6 +40,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tapbi.spark.ui_common_sdk.components.ui.ButtonApp
+import com.tapbi.spark.ui_common_sdk.components.ui.ButtonAppStyle
 import com.tapbi.spark.voiceai.R
 import com.tapbi.spark.voiceai.common.models.LockScreenState
 
@@ -204,7 +205,7 @@ fun SecurityQuestionOverlayView(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 110.dp),
+                .height(110.dp),
             placeholder = {
                 Text(
                     text = "Nhập câu trả lời tại đây...",
@@ -212,6 +213,7 @@ fun SecurityQuestionOverlayView(
                     fontSize = 15.sp
                 )
             },
+            singleLine = false,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = Color(0xFFFAFAFA),
                 unfocusedContainerColor = Color(0xFFFAFAFA),
@@ -227,13 +229,14 @@ fun SecurityQuestionOverlayView(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        Button(
+        ButtonApp(
+            text = "Xác Nhận Mở Khóa",
             onClick = {
                 val trimmedInput = answerInput.trim()
                 if (trimmedInput.isBlank()) {
                     message = "Vui lòng nhập câu trả lời!"
                     isError = true
-                    return@Button
+                    return@ButtonApp
                 }
 
                 if (LockScreenState.hasSecurityQuestionSetup) {
@@ -253,27 +256,14 @@ fun SecurityQuestionOverlayView(
                         isError = true
                     }
                 } else {
-                    LockScreenState.securityQuestionIndex = selectedIndex
-                    LockScreenState.securityAnswer = trimmedInput
-                    message = "✅ Đã lưu câu hỏi & mở khóa thành công!"
-                    isError = false
-                    isSuccess = true
-                    onSuccessUnlock()
+                    message = "❌ Chưa cài đặt câu hỏi bảo mật! Vui lòng mở ứng dụng để cài đặt trước."
+                    isError = true
                 }
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0288D1)),
+            style = ButtonAppStyle.OK,
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(26.dp)
-        ) {
-            Text(
-                text = "Xác Nhận Mở Khóa",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-        }
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
     }

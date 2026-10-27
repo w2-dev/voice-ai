@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
-import android.media.MediaRecorder
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -62,13 +61,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.k2fsa.sherpa.onnx.SileroVadModelConfig
-import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractor
-import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractorConfig
-import com.k2fsa.sherpa.onnx.Vad
-import com.k2fsa.sherpa.onnx.VadModelConfig
 import com.tapbi.spark.ui_common_sdk.components.ui.AnimateDialog
+import com.tapbi.spark.ui_common_sdk.components.ui.ButtonApp
+import com.tapbi.spark.ui_common_sdk.components.ui.ButtonAppStyle
 import com.tapbi.spark.voiceai.R
+import com.tapbi.spark.voiceai.common.models.LockScreenState
 import com.tapbi.spark.voiceai.utils.ModelManager
 import com.tapbi.spark.voiceai.utils.VoiceUtils
 import kotlinx.coroutines.Dispatchers
@@ -139,64 +136,60 @@ fun PassphraseSetupScreen(
 
                     val audioData = mutableListOf<Float>()
                     val buffer = ByteArray(512 * 2)
-                    recorder.startRecording()
 
-                    val startTime = System.currentTimeMillis()
-                    while (System.currentTimeMillis() - startTime < 4000 && viewModel.uiState.value.isRecording) {
-                        val readSize = recorder.read(buffer, 0, buffer.size)
-                        if (readSize > 0) {
-                            for (i in 0 until readSize step 2) {
-                                val s =
-                                    ((buffer[i + 1].toInt() and 0xFF shl 8) or (buffer[i].toInt() and 0xFF)).toShort()
-                                audioData.add(s / 32768.0f)
+                    try {
+                        recorder.startRecording()
+                        val startTime = System.currentTimeMillis()
+                        while (System.currentTimeMillis() - startTime < 4000 && viewModel.uiState.value.isRecording) {
+                            val readSize = recorder.read(buffer, 0, buffer.size)
+                            if (readSize > 0) {
+                                for (i in 0 until readSize step 2) {
+                                    val s =
+                                        ((buffer[i + 1].toInt() and 0xFF shl 8) or (buffer[i].toInt() and 0xFF)).toShort()
+                                    audioData.add(s / 32768.0f)
+                                }
                             }
                         }
+                    } finally {
+                        try {
+                            recorder.stop()
+                        } catch (e: Exception) {
+                            Timber.w(e)
+                        }
+                        try {
+                            recorder.release()
+                        } catch (e: Exception) {
+                            Timber.w(e)
+                        }
+                        timerJob.cancel()
                     }
-                    recorder.stop()
-                    recorder.release()
-                    timerJob.cancel()
 
                     if (!viewModel.uiState.value.isRecording && viewModel.uiState.value.enrollmentStep == 1) {
                         Timber.d("Recording cancelled by resetEnrollment()")
                         return@launch
                     }
 
-                    val rawAudioArray = audioData.toFloatArray()
-
-                    withContext<Unit>(Dispatchers.Main) {
-                        viewModel.updateStatusMessage("Đang kiểm tra VAD & chạy Zipformer ASR...")
+                    // Immediately mark recording as finished & Micro released!
+                    withContext(Dispatchers.Main) {
+                        viewModel.setRecording(false)
+                        viewModel.updateStatusMessage("Đang xử lý & nhận diện khẩu lệnh...")
                     }
+
+                    val rawAudioArray = audioData.toFloatArray()
 
                     // Optional Silero VAD check
                     try {
-                        val vadConfig = VadModelConfig(
-                            sileroVadModelConfig = SileroVadModelConfig(
-                                model = "model/silero_vad_16k_op15.onnx",
-                                threshold = 0.3F,
-                                minSilenceDuration = 0.25F,
-                                minSpeechDuration = 0.15F,
-                                windowSize = 512
-                            ),
-                            sampleRate = 16000,
-                            numThreads = 1,
-                            provider = "cpu"
-                        )
-                        val vad = Vad(context.assets, vadConfig)
+                        val vad = ModelManager.getOrNewVad(context)
                         vad.acceptWaveform(rawAudioArray)
                         vad.flush()
-                        vad.release()
                     } catch (e: Throwable) {
                         Timber.w(e, "Silero VAD check exception")
-                    }
-
-                    withContext<Unit>(Dispatchers.Main) {
-                        viewModel.updateStatusMessage("Đang nhận diện khẩu lệnh với Zipformer ASR...")
                     }
 
                     var zipformerText: String
                     try {
                         val recognizer =
-                            ModelManager.createRecognizer(context, uiState.languageCode)
+                            ModelManager.getOrNewRecognizer(context, uiState.languageCode)
                         val offlineStream = recognizer.createStream()
                         offlineStream.acceptWaveform(rawAudioArray, 16000)
                         recognizer.decode(offlineStream)
@@ -207,7 +200,6 @@ fun PassphraseSetupScreen(
                         }
 
                         offlineStream.release()
-                        recognizer.release()
                         Timber.d("Zipformer ASR text result: '$zipformerText'")
                     } catch (e: Throwable) {
                         Timber.e(e, "Error during Zipformer ASR execution")
@@ -218,19 +210,12 @@ fun PassphraseSetupScreen(
                     var extractedEmbedding: FloatArray? = null
                     var vectorPreview: String
                     try {
-                        val config = SpeakerEmbeddingExtractorConfig(
-                            "model/3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx",
-                            2,
-                            false,
-                            "cpu"
-                        )
-                        val extractor = SpeakerEmbeddingExtractor(context.assets, config)
+                        val extractor = ModelManager.getOrNewExtractor(context)
                         val stream = extractor.createStream()
                         stream.acceptWaveform(rawAudioArray, 16000)
                         stream.inputFinished()
                         extractedEmbedding = extractor.compute(stream)
                         stream.release()
-                        extractor.release()
 
                         vectorPreview = "Vector [96d]: [${
                             extractedEmbedding.take(4).joinToString(", ") { "%.2f".format(it) }
@@ -246,8 +231,6 @@ fun PassphraseSetupScreen(
                             !zipformerText.contains("Lỗi", ignoreCase = true)
 
                     withContext(Dispatchers.Main) {
-                        viewModel.setRecording(false)
-
                         if (isSuccessRecognition) {
                             viewModel.processEnrollmentStep(
                                 zipformerText,
@@ -472,7 +455,7 @@ fun PassphraseSetupScreen(
             }
         }
 
-        if (uiState.enrollmentStep > 1) {
+        if (uiState.enrollmentStep > 1 && !uiState.statusMessage.contains("Hoàn tất")) {
             OutlinedButton(
                 onClick = { viewModel.resetEnrollment() },
                 shape = RoundedCornerShape(16.dp),
@@ -500,13 +483,20 @@ fun PassphraseSetupScreen(
         }
 
         // Large Yellow Record Button
+        val recordEnabled = !uiState.isRecording && !uiState.isDownloadingModel
         Box(
             modifier = Modifier
                 .size(96.dp)
-                .shadow(6.dp, CircleShape)
+                .shadow(if (recordEnabled) 6.dp else 0.dp, CircleShape)
                 .clip(CircleShape)
-                .background(if (uiState.isRecording) Color(0xFFFF7043) else Color(0xFFFFD54F))
-                .clickable(enabled = !uiState.isRecording) {
+                .background(
+                    when {
+                        uiState.isRecording -> Color(0xFFFF7043)
+                        uiState.isDownloadingModel -> Color(0xFFBDBDBD) // grey while downloading
+                        else -> Color(0xFFFFD54F)
+                    }
+                )
+                .clickable(enabled = recordEnabled) {
                     if (viewModel.checkModelAndRecord(context)) {
                         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     }
@@ -519,10 +509,15 @@ fun PassphraseSetupScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = if (uiState.isRecording) "Recording..." else "Tap to record",
+            text = when {
+                uiState.isDownloadingModel && uiState.downloadProgress >= 100 -> "Đang giải nén..."
+                uiState.isDownloadingModel -> "Đang tải... ${uiState.downloadProgress}%"
+                uiState.isRecording -> "Recording..."
+                else -> "Tap to record"
+            },
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFF616161)
+            color = if (uiState.isDownloadingModel) Color(0xFF0288D1) else Color(0xFF616161)
         )
 
         // Display Recorded Text and Vector Info Result Card
@@ -564,6 +559,62 @@ fun PassphraseSetupScreen(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
+
+        // Action Buttons Row (Hủy / Tiếp tục / Xóa khẩu lệnh)
+        val isSetupFinished =
+            uiState.statusMessage.contains("Hoàn tất") || LockScreenState.hasVoiceSetup
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (!isSetupFinished) {
+                ButtonApp(
+                    text = "Hủy",
+                    onClick = {
+                        viewModel.resetEnrollment()
+                        viewModel.popBackStack()
+                    },
+                    style = ButtonAppStyle.CANCEL,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(20.dp)
+                )
+
+                ButtonApp(
+                    text = when {
+                        uiState.isDownloadingModel && uiState.downloadProgress >= 100 -> "Đang Giải Nén..."
+                        uiState.isDownloadingModel -> "Đang Tải... ${uiState.downloadProgress}%"
+                        uiState.isRecording -> "Đang Thu..."
+                        else -> "Tiếp Tục"
+                    },
+                    onClick = {
+                        if (viewModel.checkModelAndRecord(context)) {
+                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
+                    style = ButtonAppStyle.OK,
+                    enabled = !uiState.isRecording && !uiState.isDownloadingModel,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(20.dp)
+                )
+            } else {
+                ButtonApp(
+                    text = "Xóa Mật Khẩu Giọng Nói",
+                    onClick = {
+                        LockScreenState.voicePassphrase = ""
+                        LockScreenState.referenceEmbedding = null
+                        LockScreenState.isVoiceLockEnabled = false
+                        viewModel.resetEnrollment()
+                        viewModel.popBackStack()
+                    },
+                    style = ButtonAppStyle.DANGER,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp)
+                )
+            }
+        }
 
         // Note
         Text(

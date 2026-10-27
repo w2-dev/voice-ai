@@ -236,22 +236,33 @@ fun LockOverlayContent(
 
                         val audioData = mutableListOf<Float>()
                         val buffer = ByteArray(512 * 2)
-                        recorder.startRecording()
 
-                        val startTime = System.currentTimeMillis()
-                        while (System.currentTimeMillis() - startTime < 4000) {
-                            val readSize = recorder.read(buffer, 0, buffer.size)
-                            if (readSize > 0) {
-                                for (i in 0 until readSize step 2) {
-                                    val s =
-                                        ((buffer[i + 1].toInt() shl 8) or (buffer[i].toInt() and 0xFF)).toShort()
-                                    audioData.add(s / 32768.0f)
+                        try {
+                            recorder.startRecording()
+                            val startTime = System.currentTimeMillis()
+                            while (System.currentTimeMillis() - startTime < 4000) {
+                                val readSize = recorder.read(buffer, 0, buffer.size)
+                                if (readSize > 0) {
+                                    for (i in 0 until readSize step 2) {
+                                        val s =
+                                            ((buffer[i + 1].toInt() and 0xFF shl 8) or (buffer[i].toInt() and 0xFF)).toShort()
+                                        audioData.add(s / 32768.0f)
+                                    }
                                 }
                             }
+                        } finally {
+                            try {
+                                recorder.stop()
+                            } catch (e: Exception) {
+                                Timber.w(e)
+                            }
+                            try {
+                                recorder.release()
+                            } catch (e: Exception) {
+                                Timber.w(e)
+                            }
+                            timerJob.cancel()
                         }
-                        recorder.stop()
-                        recorder.release()
-                        timerJob.cancel()
 
                         if (audioData.isEmpty()) {
                             withContext(Dispatchers.Main) {
@@ -493,7 +504,11 @@ fun LockOverlayContent(
                             icon = "🎤",
                             label = "Giọng nói",
                             isSelected = selectedMethod == OverlayUnlockMethod.VOICE,
-                            onClick = { selectedMethod = OverlayUnlockMethod.VOICE }
+                            onClick = {
+                                if (!isRecording) {
+                                    selectedMethod = OverlayUnlockMethod.VOICE
+                                }
+                            }
                         )
                     }
 
@@ -503,8 +518,10 @@ fun LockOverlayContent(
                             label = "Vân tay",
                             isSelected = selectedMethod == OverlayUnlockMethod.FINGERPRINT,
                             onClick = {
-                                selectedMethod = OverlayUnlockMethod.FINGERPRINT
-                                triggerBiometricUnlock()
+                                if (!isRecording) {
+                                    selectedMethod = OverlayUnlockMethod.FINGERPRINT
+                                    triggerBiometricUnlock()
+                                }
                             }
                         )
                     }
@@ -515,9 +532,11 @@ fun LockOverlayContent(
                             label = "Mã PIN",
                             isSelected = selectedMethod == OverlayUnlockMethod.PIN,
                             onClick = {
-                                selectedMethod = OverlayUnlockMethod.PIN
-                                pinInput = ""
-                                isPinError = false
+                                if (!isRecording) {
+                                    selectedMethod = OverlayUnlockMethod.PIN
+                                    pinInput = ""
+                                    isPinError = false
+                                }
                             }
                         )
                     }
@@ -528,8 +547,10 @@ fun LockOverlayContent(
                             label = "Hình vẽ",
                             isSelected = selectedMethod == OverlayUnlockMethod.PATTERN,
                             onClick = {
-                                selectedMethod = OverlayUnlockMethod.PATTERN
-                                isPatternError = false
+                                if (!isRecording) {
+                                    selectedMethod = OverlayUnlockMethod.PATTERN
+                                    isPatternError = false
+                                }
                             }
                         )
                     }

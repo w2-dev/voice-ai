@@ -15,6 +15,7 @@ import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.tapbi.spark.ui_common_sdk.foundation.AppTheme
+import com.tapbi.spark.voiceai.extension.hasOverlayPermission
 import com.tapbi.spark.voiceai.extension.isAtLeastApi26
 import com.tapbi.spark.voiceai.extension.isAtLeastApi28
 import com.tapbi.spark.voiceai.extension.isAtLeastApi29
@@ -36,6 +37,10 @@ class LockScreenViewBinder(
     }
 
     fun show(themeConfig: OverlayThemeConfig = OverlayThemeConfig()) {
+        if (!context.hasOverlayPermission()) {
+            Timber.tag(TAG).w("Cannot show lock overlay: Overlay permission not granted")
+            return
+        }
         if (composeView != null) return
 
         @Suppress("DEPRECATION")
@@ -131,17 +136,19 @@ class LockScreenViewBinder(
             }
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Error adding Compose overlay to WindowManager")
+            composeView = null
         }
     }
 
     fun hide() {
-        composeView?.let {
+        composeView?.let { view ->
             try {
-                windowManager.removeView(it)
+                windowManager.removeView(view)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Error removing overlay view from WindowManager")
+            } finally {
+                composeView = null
             }
-            composeView = null
         }
     }
 }

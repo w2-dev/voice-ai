@@ -40,7 +40,7 @@ class HomeViewModel @Inject constructor(
         loadPreferences()
     }
 
-    private fun loadPreferences() {
+    fun loadPreferences() {
         viewModelScope.launch {
             val isActive =
                 preferencesDataStoreHelper.getBoolean(PrefKeys.IS_LOCK_SCREEN_ACTIVE, false)

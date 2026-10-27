@@ -8,11 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,6 +20,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tapbi.spark.ui_common_sdk.components.ui.AnimateDialog
+import com.tapbi.spark.ui_common_sdk.components.ui.ButtonApp
+import com.tapbi.spark.ui_common_sdk.components.ui.ButtonAppStyle
 
 @Composable
 fun FingerprintSetupDialog(
@@ -72,22 +71,21 @@ fun FingerprintSetupDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        OutlinedButton(
+                        ButtonApp(
+                            text = "Hủy",
                             onClick = onDismissRequest,
+                            style = ButtonAppStyle.CANCEL,
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text("Hủy", color = Color(0xFF616161))
-                        }
+                        )
 
-                        Button(
+                        ButtonApp(
+                            text = "Cài Đặt Ngay",
                             onClick = onConfirmSetup,
+                            style = ButtonAppStyle.OK,
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0288D1)),
                             shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text("Cài Đặt Ngay", color = Color.White)
-                        }
+                        )
                     }
                 }
             }

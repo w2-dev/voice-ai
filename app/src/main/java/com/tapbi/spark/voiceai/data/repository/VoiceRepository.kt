@@ -7,7 +7,6 @@ import com.tapbi.spark.voiceai.data.preferences.PrefKeys
 import com.tapbi.spark.voiceai.data.preferences.PreferencesDataStoreHelper
 import com.tapbi.spark.voiceai.utils.ModelManager
 import com.tapbi.spark.voiceai.utils.VoiceUtils
-import com.tapbi.spark.voiceai.utils.stringSimilarity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -48,13 +47,7 @@ class VoiceRepository @Inject constructor(
                 )
             }
             2 -> {
-                val similarity = stringSimilarity(
-                    recognizedText.lowercase().trim(),
-                    firstPassphrase.lowercase().trim()
-                )
-                val isMatched = similarity >= 0.3 ||
-                        recognizedText.contains(firstPassphrase, ignoreCase = true) ||
-                        firstPassphrase.contains(recognizedText, ignoreCase = true)
+                val isMatched = VoiceUtils.isStrictTextMatch(recognizedText, firstPassphrase)
 
                 if (isMatched) {
                     if (embedding != null) {
@@ -70,18 +63,12 @@ class VoiceRepository @Inject constructor(
                     EnrollmentResult.MismatchError(
                         currentStep = 2,
                         expectedPassphrase = firstPassphrase,
-                        message = "❌ Lần 2 không khớp khẩu lệnh Lần 1 (\"$firstPassphrase\")!"
+                        message = "❌ Lần 2 (\"$recognizedText\") không khớp khẩu lệnh Lần 1 (\"$firstPassphrase\")!"
                     )
                 }
             }
             else -> {
-                val similarity = stringSimilarity(
-                    recognizedText.lowercase().trim(),
-                    firstPassphrase.lowercase().trim()
-                )
-                val isMatched = similarity >= 0.3 ||
-                        recognizedText.contains(firstPassphrase, ignoreCase = true) ||
-                        firstPassphrase.contains(recognizedText, ignoreCase = true)
+                val isMatched = VoiceUtils.isStrictTextMatch(recognizedText, firstPassphrase)
 
                 if (isMatched) {
                     if (embedding != null) {
@@ -99,7 +86,7 @@ class VoiceRepository @Inject constructor(
                     EnrollmentResult.MismatchError(
                         currentStep = 3,
                         expectedPassphrase = firstPassphrase,
-                        message = "❌ Lần 3 không khớp khẩu lệnh Lần 1 (\"$firstPassphrase\")!"
+                        message = "❌ Lần 3 (\"$recognizedText\") không khớp khẩu lệnh Lần 1 (\"$firstPassphrase\")!"
                     )
                 }
             }

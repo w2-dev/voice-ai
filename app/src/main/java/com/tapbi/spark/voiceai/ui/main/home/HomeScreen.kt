@@ -58,7 +58,7 @@ fun HomeScreen(
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        viewModel.ensureLockServiceStarted()
+        viewModel.loadPreferences()
     }
 
     FingerprintSetupDialog(

@@ -133,8 +133,14 @@ class PatternSetupViewModel @Inject constructor(
     }
 
     fun resetSetup() {
-        resetSetupState()
-        navigation.popBackStack()
+        _uiState.update {
+            it.copy(
+                step = PatternSetupStep.FIRST_DRAW,
+                firstPattern = null,
+                message = "Vẽ hình mẫu của bạn (Nối ít nhất 4 điểm)",
+                isError = false
+            )
+        }
     }
 
     fun deletePattern() {

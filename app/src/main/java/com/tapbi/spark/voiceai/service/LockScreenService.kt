@@ -13,6 +13,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.tapbi.spark.voiceai.R
+import com.tapbi.spark.voiceai.common.models.LockScreenState
 import com.tapbi.spark.voiceai.extension.isAtLeastApi26
 import com.tapbi.spark.voiceai.extension.isAtLeastApi29
 import com.tapbi.spark.voiceai.extension.isAtLeastApi33
@@ -146,9 +147,17 @@ class LockScreenService : Service() {
     }
 
     private fun showLockScreen() {
-        Timber.tag(TAG).d("showLockScreen() called")
+        Timber.tag(TAG).d("showLockScreen() called | isLockScreenActive = ${LockScreenState.isLockScreenActive}")
+        if (!LockScreenState.isLockScreenActive) {
+            Timber.tag(TAG).d("Lock screen active switch is OFF, skipping overlay show")
+            return
+        }
         initViewBinder()
-        viewBinder?.show()
+        try {
+            viewBinder?.show()
+        } catch (t: Throwable) {
+            Timber.tag(TAG).e(t, "Error showing lock screen overlay")
+        }
     }
 
     private fun hideLockScreen() {

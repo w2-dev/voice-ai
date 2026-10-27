@@ -40,7 +40,7 @@ fun VoiceUnlockContent(
                 .shadow(6.dp, CircleShape)
                 .clip(CircleShape)
                 .background(if (isRecording) Color(0xFFFF7043) else themeConfig.accentColor)
-                .clickable(onClick = onMicrophoneClick),
+                .clickable(enabled = !isRecording, onClick = onMicrophoneClick),
             contentAlignment = Alignment.Center
         ) {
             Text(text = "🎤", fontSize = 36.sp)

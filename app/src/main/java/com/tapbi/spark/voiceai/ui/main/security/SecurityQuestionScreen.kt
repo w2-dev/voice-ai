@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -45,6 +44,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.tapbi.spark.ui_common_sdk.components.ui.ButtonApp
+import com.tapbi.spark.ui_common_sdk.components.ui.ButtonAppStyle
 import com.tapbi.spark.voiceai.R
 
 @Composable
@@ -212,7 +213,7 @@ fun SecurityQuestionScreen(
             onValueChange = { viewModel.onAnswerChanged(it) },
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 110.dp),
+                .height(110.dp),
             placeholder = {
                 Text(
                     text = "Nhập câu trả lời tại đây...",
@@ -220,6 +221,7 @@ fun SecurityQuestionScreen(
                     fontSize = 15.sp
                 )
             },
+            singleLine = false,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = Color(0xFFFAFAFA),
                 unfocusedContainerColor = Color(0xFFFAFAFA),
@@ -228,30 +230,20 @@ fun SecurityQuestionScreen(
                 focusedTextColor = Color(0xFF212121),
                 unfocusedTextColor = Color(0xFF212121)
             ),
-            shape = RoundedCornerShape(12.dp),
-            minLines = 3,
-            maxLines = 5
+            shape = RoundedCornerShape(12.dp)
         )
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        Button(
+        ButtonApp(
+            text = if (uiState.isUnlockMode) "Xác Nhận Mở Khóa" else "Lưu Cài Đặt",
             onClick = {
                 viewModel.onConfirmClick(onSuccessUnlock = onSuccessUnlock)
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0288D1)),
+            style = ButtonAppStyle.OK,
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(26.dp)
-        ) {
-            Text(
-                text = if (uiState.isUnlockMode) "Xác Nhận Mở Khóa" else "Lưu Cài Đặt",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-        }
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
     }

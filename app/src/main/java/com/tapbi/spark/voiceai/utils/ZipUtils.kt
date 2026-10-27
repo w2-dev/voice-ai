@@ -89,15 +89,21 @@ object ZipUtils {
         if (!destDir.exists()) destDir.mkdirs()
 
         FileInputStream(tarBz2File).use { fis ->
-            BufferedInputStream(fis).use { bis ->
+            BufferedInputStream(fis, 65536).use { bis ->
                 BZip2CompressorInputStream(bis).use { bzIn ->
                     TarArchiveInputStream(bzIn).use { tarIn ->
                         var entry = tarIn.nextTarEntry
                         while (entry != null) {
+                            val entryName = entry.name.lowercase()
                             val fileName = entry.name.substringAfterLast("/")
-                            if (!entry.isDirectory && fileName.isNotBlank()) {
+
+                            // Bỏ qua file FP32 thừa (578MB) và các file âm thanh test_wavs để giải nén siêu tốc
+                            val isRedundantFp32Onnx = entryName.endsWith(".onnx") && entryName.contains("epoch") && !entryName.contains("int8")
+                            val isTestWav = entryName.contains("test_wavs")
+
+                            if (!entry.isDirectory && fileName.isNotBlank() && !isRedundantFp32Onnx && !isTestWav) {
                                 val outputFile = File(destDirectory, fileName)
-                                BufferedOutputStream(FileOutputStream(outputFile)).use { out ->
+                                BufferedOutputStream(FileOutputStream(outputFile), 65536).use { out ->
                                     tarIn.copyTo(out)
                                 }
                             }
@@ -107,6 +113,7 @@ object ZipUtils {
                 }
             }
         }
+        cleanUpNonInt8Models(destDirectory)
     }
 
     fun unTar(tarFile: File, destDirectory: String) {
@@ -114,14 +121,19 @@ object ZipUtils {
         if (!destDir.exists()) destDir.mkdirs()
 
         FileInputStream(tarFile).use { fis ->
-            BufferedInputStream(fis).use { bis ->
+            BufferedInputStream(fis, 65536).use { bis ->
                 TarArchiveInputStream(bis).use { tarIn ->
                     var entry = tarIn.nextTarEntry
                     while (entry != null) {
+                        val entryName = entry.name.lowercase()
                         val fileName = entry.name.substringAfterLast("/")
-                        if (!entry.isDirectory && fileName.isNotBlank()) {
+
+                        val isRedundantFp32Onnx = entryName.endsWith(".onnx") && entryName.contains("epoch") && !entryName.contains("int8")
+                        val isTestWav = entryName.contains("test_wavs")
+
+                        if (!entry.isDirectory && fileName.isNotBlank() && !isRedundantFp32Onnx && !isTestWav) {
                             val outputFile = File(destDirectory, fileName)
-                            BufferedOutputStream(FileOutputStream(outputFile)).use { out ->
+                            BufferedOutputStream(FileOutputStream(outputFile), 65536).use { out ->
                                 tarIn.copyTo(out)
                             }
                         }
@@ -160,5 +172,35 @@ object ZipUtils {
             bos.write(bytesIn, 0, read)
         }
         bos.close()
+    }
+
+    fun cleanUpNonInt8Models(destDirectory: String) {
+        try {
+            val destDir = File(destDirectory)
+            if (!destDir.exists()) return
+            val files = destDir.walkTopDown().filter { it.isFile }.toList()
+
+            // NOTE: decoder has NO int8 variant — keep decoder.onnx (it's small, ~2-11MB)
+            // Only encoder and joiner have int8 variants; delete their FP32 counterparts if int8 exists.
+            val hasInt8Encoder = files.any { it.name.contains("encoder", ignoreCase = true) && it.name.contains("int8", ignoreCase = true) }
+            val hasInt8Joiner = files.any { it.name.contains("joiner", ignoreCase = true) && it.name.contains("int8", ignoreCase = true) }
+
+            if (hasInt8Encoder) {
+                files.filter { it.name.contains("encoder", ignoreCase = true) && !it.name.contains("int8", ignoreCase = true) && it.name.endsWith(".onnx") }
+                    .forEach { file ->
+                        Timber.d("Deleting redundant FP32 encoder: ${file.name} (${file.length() / 1024 / 1024}MB)")
+                        file.delete()
+                    }
+            }
+            if (hasInt8Joiner) {
+                files.filter { it.name.contains("joiner", ignoreCase = true) && !it.name.contains("int8", ignoreCase = true) && it.name.endsWith(".onnx") }
+                    .forEach { file ->
+                        Timber.d("Deleting redundant FP32 joiner: ${file.name} (${file.length() / 1024 / 1024}MB)")
+                        file.delete()
+                    }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error cleaning up non-int8 model files in $destDirectory")
+        }
     }
 }
