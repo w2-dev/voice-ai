@@ -146,7 +146,7 @@ dependencies {
     // Utils
     implementation(libs.timber)
     implementation(libs.datastore.preferences)
-    implementation("org.apache.commons:commons-compress:1.28.0")
+    implementation(libs.commons.compress)
     implementation(libs.androidx.biometric)
 
     implementation(libs.lottie.compose)

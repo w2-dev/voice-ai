@@ -6,6 +6,11 @@ import com.k2fsa.sherpa.onnx.OfflineModelConfig
 import com.k2fsa.sherpa.onnx.OfflineRecognizer
 import com.k2fsa.sherpa.onnx.OfflineRecognizerConfig
 import com.k2fsa.sherpa.onnx.OfflineTransducerModelConfig
+import com.k2fsa.sherpa.onnx.SileroVadModelConfig
+import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractor
+import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractorConfig
+import com.k2fsa.sherpa.onnx.Vad
+import com.k2fsa.sherpa.onnx.VadModelConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -22,6 +27,76 @@ object ModelManager {
     private const val BUFFER_SIZE = 8192
 
     val LANGUAGE_MODEL_URLS get() = Constant.ZIPFORMER_MODEL_URLS
+
+    private var cachedRecognizer: OfflineRecognizer? = null
+    private var cachedRecognizerLang: String? = null
+    private var cachedExtractor: SpeakerEmbeddingExtractor? = null
+    private var cachedVad: Vad? = null
+
+    @Synchronized
+    fun getOrNewRecognizer(context: Context, languageCode: String = "vi-VN"): OfflineRecognizer {
+        if (cachedRecognizer != null && cachedRecognizerLang == languageCode) {
+            return cachedRecognizer!!
+        }
+        try {
+            cachedRecognizer?.release()
+        } catch (e: Exception) {
+            Timber.e(e)
+        }
+        val recognizer = createRecognizer(context, languageCode)
+        cachedRecognizer = recognizer
+        cachedRecognizerLang = languageCode
+        return recognizer
+    }
+
+    @Synchronized
+    fun getOrNewExtractor(context: Context): SpeakerEmbeddingExtractor {
+        if (cachedExtractor != null) {
+            return cachedExtractor!!
+        }
+        val config = SpeakerEmbeddingExtractorConfig(
+            Constant.MODEL_SPEAKER_CAMPPLUS_PATH,
+            2,
+            false,
+            "cpu"
+        )
+        val extractor = SpeakerEmbeddingExtractor(context.assets, config)
+        cachedExtractor = extractor
+        return extractor
+    }
+
+    @Synchronized
+    fun getOrNewVad(context: Context): Vad {
+        if (cachedVad != null) {
+            return cachedVad!!
+        }
+        val vadConfig = VadModelConfig(
+            sileroVadModelConfig = SileroVadModelConfig(
+                model = Constant.MODEL_SILERO_VAD_PATH,
+                threshold = 0.3F,
+                minSilenceDuration = 0.25F,
+                minSpeechDuration = 0.15F,
+                windowSize = 512
+            ),
+            sampleRate = 16000,
+            numThreads = 1,
+            provider = "cpu"
+        )
+        val vad = Vad(context.assets, vadConfig)
+        cachedVad = vad
+        return vad
+    }
+
+    fun prewarmModels(context: Context, languageCode: String = "vi-VN") {
+        try {
+            getOrNewRecognizer(context, languageCode)
+            getOrNewExtractor(context)
+            getOrNewVad(context)
+            Timber.d("ONNX Models pre-warmed successfully for $languageCode")
+        } catch (e: Exception) {
+            Timber.e(e, "Error pre-warming models")
+        }
+    }
 
     fun isModelDownloaded(context: Context, languageCode: String): Boolean {
         if (languageCode == "vi-VN") return true // Built-in assets fallback

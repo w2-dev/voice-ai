@@ -17,6 +17,8 @@ interface MainNavigator {
 
     fun openPassphraseSetup()
 
+    fun openPatternTypeSelection()
+
     fun openPatternSetup()
 
     fun openPinSetup()
@@ -72,6 +74,10 @@ internal class MainNavigatorImpl @Inject constructor(
 
     override fun openPassphraseSetup() {
         routeNavigation.navigate(NavigationScreen.PassphraseSetupScreen.route)
+    }
+
+    override fun openPatternTypeSelection() {
+        routeNavigation.navigate(NavigationScreen.PatternTypeSelectionScreen.route)
     }
 
     override fun openPatternSetup() {

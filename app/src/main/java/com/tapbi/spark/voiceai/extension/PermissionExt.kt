@@ -25,18 +25,33 @@ fun Context.hasRecordAudioPermission(): Boolean {
 }
 
 fun Context.hasOverlayPermission(): Boolean {
-    return !isAtLeastApi23 || Settings.canDrawOverlays(this)
+    return try {
+        !isAtLeastApi23 || Settings.canDrawOverlays(this)
+    } catch (_: Exception) {
+        false
+    }
 }
 
 fun Context.openOverlayPermissionSettings() {
     if (isAtLeastApi23) {
-        val intent = Intent(
-            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            "package:$packageName".toUri()
-        ).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                "package:$packageName".toUri()
+            ).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        } catch (_: Exception) {
+            try {
+                val fallbackIntent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(fallbackIntent)
+            } catch (_: Exception) {
+                openAppPermissionSettings()
+            }
         }
-        startActivity(intent)
     }
 }
 

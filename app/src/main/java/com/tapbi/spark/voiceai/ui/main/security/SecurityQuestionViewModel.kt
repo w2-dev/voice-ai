@@ -62,7 +62,10 @@ class SecurityQuestionViewModel @Inject constructor(
 
         if (state.isUnlockMode) {
             if (LockScreenState.hasSecurityQuestionSetup) {
-                if (trimmedAnswer.equals(LockScreenState.securityAnswer, ignoreCase = true)) {
+                val isQuestionMatch = state.selectedIndex == LockScreenState.securityQuestionIndex
+                val isAnswerMatch = trimmedAnswer.equals(LockScreenState.securityAnswer, ignoreCase = true)
+
+                if (isQuestionMatch && isAnswerMatch) {
                     _uiState.update {
                         it.copy(
                             message = "✅ Xác thực thành công! Đang mở khóa...",
@@ -71,6 +74,13 @@ class SecurityQuestionViewModel @Inject constructor(
                         )
                     }
                     onSuccessUnlock?.invoke()
+                } else if (!isQuestionMatch) {
+                    _uiState.update {
+                        it.copy(
+                            message = "❌ Không đúng câu hỏi bảo mật đã cài đặt!",
+                            isError = true
+                        )
+                    }
                 } else {
                     _uiState.update {
                         it.copy(
@@ -99,6 +109,7 @@ class SecurityQuestionViewModel @Inject constructor(
                     isSuccess = true
                 )
             }
+            onSuccessUnlock?.invoke() ?: popBackStack()
         }
     }
 

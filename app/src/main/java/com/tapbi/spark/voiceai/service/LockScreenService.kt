@@ -8,12 +8,15 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ServiceInfo
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.tapbi.spark.voiceai.R
 import com.tapbi.spark.voiceai.extension.isAtLeastApi26
+import com.tapbi.spark.voiceai.extension.isAtLeastApi29
 import com.tapbi.spark.voiceai.extension.isAtLeastApi33
+import com.tapbi.spark.voiceai.extension.isAtLeastApi34
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.LockScreenViewBinder
 import timber.log.Timber
 
@@ -34,7 +37,31 @@ class LockScreenService : Service() {
         Timber.tag(TAG).d("onCreate() - Starting Foreground LockScreenService")
         createNotificationChannel()
         val notification = createNotification()
-        startForeground(NOTIFICATION_ID, notification)
+
+        if (isAtLeastApi34) {
+            try {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Error startForeground API 34 specialUse")
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } else if (isAtLeastApi29) {
+            try {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MANIFEST
+                )
+            } catch (_: Exception) {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
 
         initViewBinder()
         registerScreenReceiver()

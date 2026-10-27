@@ -237,11 +237,17 @@ fun SecurityQuestionOverlayView(
                 }
 
                 if (LockScreenState.hasSecurityQuestionSetup) {
-                    if (trimmedInput.equals(LockScreenState.securityAnswer, ignoreCase = true)) {
+                    val isQuestionMatch = selectedIndex == LockScreenState.securityQuestionIndex
+                    val isAnswerMatch = trimmedInput.equals(LockScreenState.securityAnswer, ignoreCase = true)
+
+                    if (isQuestionMatch && isAnswerMatch) {
                         message = "✅ Xác thực thành công! Đang mở khóa..."
                         isError = false
                         isSuccess = true
                         onSuccessUnlock()
+                    } else if (!isQuestionMatch) {
+                        message = "❌ Sai câu hỏi bảo mật đã cài đặt!"
+                        isError = true
                     } else {
                         message = "❌ Câu trả lời không đúng! Vui lòng thử lại."
                         isError = true

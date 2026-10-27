@@ -17,6 +17,8 @@ object PrefKeys {
     val PIN_PASSWORD = stringPreferencesKey("PIN_PASSWORD")
     val IS_PATTERN_LOCK_ENABLED = booleanPreferencesKey("IS_PATTERN_LOCK_ENABLED")
     val PATTERN_LOCK_DATA = stringPreferencesKey("PATTERN_LOCK_DATA")
+    val PATTERN_GRID_ROWS = intPreferencesKey("PATTERN_GRID_ROWS")
+    val PATTERN_GRID_COLS = intPreferencesKey("PATTERN_GRID_COLS")
     val IS_FINGERPRINT_ENABLED = booleanPreferencesKey("IS_FINGERPRINT_ENABLED")
     val SECURITY_QUESTION_INDEX = intPreferencesKey("SECURITY_QUESTION_INDEX")
     val SECURITY_ANSWER = stringPreferencesKey("SECURITY_ANSWER")

@@ -21,6 +21,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -45,6 +47,7 @@ fun PinSetupScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isStepFinished = uiState.step == 3 || uiState.isSuccess
 
     Column(
         modifier = modifier
@@ -73,18 +76,34 @@ fun PinSetupScreen(
             Text(
                 text = "Cài đặt mã PIN",
                 fontSize = 20.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF616161)
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF212121)
             )
 
+            // Right Checkmark or Crown
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .clickable { viewModel.openPremium() },
+                    .clickable {
+                        if (isStepFinished) {
+                            viewModel.navigateToHome()
+                        } else {
+                            viewModel.openPremium()
+                        }
+                    },
                 contentAlignment = Alignment.Center
             ) {
-                CrownIcon(modifier = Modifier.size(28.dp))
+                if (isStepFinished) {
+                    Text(
+                        text = "✓",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2E7D32)
+                    )
+                } else {
+                    CrownIcon(modifier = Modifier.size(28.dp))
+                }
             }
         }
 
@@ -104,7 +123,7 @@ fun PinSetupScreen(
             text = uiState.message,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
-            color = if (uiState.isError) Color(0xFFFF5252) else if (uiState.message.contains("✅")) Color(0xFF4CAF50) else Color(0xFF0288D1),
+            color = if (uiState.isError) Color(0xFFFF5252) else if (isStepFinished) Color(0xFF2E7D32) else Color(0xFF0288D1),
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
@@ -141,29 +160,66 @@ fun PinSetupScreen(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // KeyPad
-        PinKeyPad(
-            onDigitClick = { viewModel.onKeyPadClick(it) },
-            onDeleteClick = { viewModel.onDeleteClick() },
-            onClearClick = { viewModel.resetSetup() }
-        )
+        if (!isStepFinished) {
+            // KeyPad for typing PIN
+            PinKeyPad(
+                onDigitClick = { viewModel.onKeyPadClick(it) },
+                onDeleteClick = { viewModel.onDeleteClick() },
+                onClearClick = { viewModel.resetSetup() }
+            )
+        } else {
+            // Success Card (Disables typing PIN)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .padding(vertical = 16.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "🎉 Mã PIN Đã Được Lưu!",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2E7D32),
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "Nhấn dấu tích (✓) ở góc trên để hoàn tất.",
+                        fontSize = 14.sp,
+                        color = Color(0xFF616161),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        val showResetButton = uiState.step > 1 || isStepFinished || uiState.firstPin.isNotBlank()
 
         // Action Buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            OutlinedButton(
-                onClick = { viewModel.resetSetup() },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Text("Nhập Lại", color = Color(0xFF616161))
+            if (showResetButton) {
+                OutlinedButton(
+                    onClick = { viewModel.resetSetup() },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Text("Nhập Lại", color = Color(0xFF616161))
+                }
             }
 
-            if (uiState.hasSavedPin) {
+            if (isStepFinished) {
                 Button(
                     onClick = { viewModel.deletePin() },
                     modifier = Modifier.weight(1f),

@@ -10,6 +10,7 @@ sealed class NavigationScreen(
     data object PremiumScreen : NavigationScreen("PremiumScreen")
     data object VoiceSetupScreen : NavigationScreen("VoiceSetupScreen")
     data object PassphraseSetupScreen : NavigationScreen("PassphraseSetupScreen")
+    data object PatternTypeSelectionScreen : NavigationScreen("PatternTypeSelectionScreen")
     data object PatternSetupScreen : NavigationScreen("PatternSetupScreen")
     data object PinSetupScreen : NavigationScreen("PinSetupScreen")
     data object SecurityQuestionScreen : NavigationScreen("SecurityQuestionScreen")

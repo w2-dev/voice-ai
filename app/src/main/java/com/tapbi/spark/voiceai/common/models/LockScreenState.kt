@@ -12,6 +12,8 @@ object LockScreenState {
     var pinPassword: String = ""
 
     var isPatternLockEnabled: Boolean = false
+    var patternRows: Int = 3
+    var patternCols: Int = 3
     var targetPattern: List<Int>? = null
 
     var isFingerprintEnabled: Boolean = false

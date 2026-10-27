@@ -13,10 +13,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tapbi.spark.ui_common_sdk.components.ui.PatternLock
+import com.tapbi.spark.voiceai.common.models.LockScreenState
 
 @Composable
 fun PatternUnlockContent(
     isPatternError: Boolean,
+    clearTrigger: Any? = null,
     onPatternComplete: (List<Int>) -> Unit
 ) {
     Column(
@@ -24,17 +26,19 @@ fun PatternUnlockContent(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Vẽ hình mẫu để mở khóa",
+            text = if (isPatternError) "Hình vẽ không khớp! Thử lại" else "Vẽ hình mẫu để mở khóa",
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
-            color = Color.White,
+            color = if (isPatternError) Color(0xFFFF5252) else Color.White,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
         PatternLock(
             modifier = Modifier.size(220.dp),
+            rows = LockScreenState.patternRows,
+            cols = LockScreenState.patternCols,
             isError = isPatternError,
-            clearTrigger = isPatternError,
+            clearTrigger = clearTrigger ?: isPatternError,
             lineColor = Color(0xFF29B6F6),
             inactiveColor = Color.White.copy(alpha = 0.7f),
             errorColor = Color(0xFFFF5252),

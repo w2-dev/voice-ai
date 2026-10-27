@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
@@ -53,8 +54,17 @@ class HomeViewModel @Inject constructor(
             val isPattern =
                 preferencesDataStoreHelper.getBoolean(PrefKeys.IS_PATTERN_LOCK_ENABLED, false)
             val patternStr = preferencesDataStoreHelper.getString(PrefKeys.PATTERN_LOCK_DATA, "")
-            val isFingerprint =
+            val pRows = preferencesDataStoreHelper.getInt(PrefKeys.PATTERN_GRID_ROWS, 3)
+            val pCols = preferencesDataStoreHelper.getInt(PrefKeys.PATTERN_GRID_COLS, 3)
+            val isFingerprintSaved =
                 preferencesDataStoreHelper.getBoolean(PrefKeys.IS_FINGERPRINT_ENABLED, false)
+            val biometricManager = BiometricManager.from(context)
+            val authenticators =
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
+            val isFingerprintAvailable =
+                biometricManager.canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS
+            val isFingerprint = isFingerprintSaved && isFingerprintAvailable
+
             val qIndex = preferencesDataStoreHelper.getInt(PrefKeys.SECURITY_QUESTION_INDEX, 0)
             val qAnswer = preferencesDataStoreHelper.getString(PrefKeys.SECURITY_ANSWER, "")
 
@@ -65,6 +75,8 @@ class HomeViewModel @Inject constructor(
             LockScreenState.isPinLockEnabled = isPin
             LockScreenState.pinPassword = pinPass
             LockScreenState.isPatternLockEnabled = isPattern
+            LockScreenState.patternRows = pRows
+            LockScreenState.patternCols = pCols
             if (patternStr.isNotBlank()) {
                 LockScreenState.targetPattern =
                     patternStr.split(",").mapNotNull { it.trim().toIntOrNull() }
@@ -152,7 +164,7 @@ class HomeViewModel @Inject constructor(
 
     fun togglePatternLock(enabled: Boolean) {
         if (enabled && !LockScreenState.hasPatternSetup) {
-            navigation.openPatternSetup()
+            navigation.openPatternTypeSelection()
             return
         }
         LockScreenState.isPatternLockEnabled = enabled
@@ -183,7 +195,7 @@ class HomeViewModel @Inject constructor(
     }
 
     fun onPatternSetupClick() {
-        navigation.openPatternSetup()
+        navigation.openPatternTypeSelection()
     }
 
     fun onFingerprintClick(context: Context) {
@@ -194,10 +206,38 @@ class HomeViewModel @Inject constructor(
         navigation.openSecurityQuestionSetup()
     }
 
+    fun dismissFingerprintSetupDialog() {
+        _uiState.update { it.copy(showFingerprintSetupDialog = false) }
+    }
+
+    fun openSystemBiometricSettings(context: Context) {
+        val authenticators =
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
+        try {
+            val enrollIntent = if (isAtLeastApi30) {
+                Intent(Settings.ACTION_BIOMETRIC_ENROLL).apply {
+                    putExtra(
+                        Settings.EXTRA_BIOMETRIC_AUTHENTICATORS_ALLOWED,
+                        authenticators
+                    )
+                }
+            } else {
+                Intent(Settings.ACTION_SECURITY_SETTINGS)
+            }
+            context.startActivity(enrollIntent)
+        } catch (_: Exception) {
+            try {
+                context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
+            } catch (e: Exception) {
+                Timber.e(e)
+            }
+        }
+    }
+
     private fun setupFingerprintAuth(context: Context) {
         val biometricManager = BiometricManager.from(context)
         val authenticators =
-            BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
         when (biometricManager.canAuthenticate(authenticators)) {
             BiometricManager.BIOMETRIC_SUCCESS -> {
                 LockScreenState.isFingerprintEnabled = true
@@ -213,27 +253,29 @@ class HomeViewModel @Inject constructor(
             }
 
             BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-                Toast.makeText(
-                    context,
-                    "Chưa cài đặt vân tay! Vui lòng cài đặt trước.",
-                    Toast.LENGTH_SHORT
-                ).show()
-                val enrollIntent = if (isAtLeastApi30) {
-                    Intent(Settings.ACTION_BIOMETRIC_ENROLL).apply {
-                        putExtra(
-                            Settings.EXTRA_BIOMETRIC_AUTHENTICATORS_ALLOWED,
-                            authenticators
-                        )
-                    }
-                } else {
-                    Intent(Settings.ACTION_SECURITY_SETTINGS)
+                LockScreenState.isFingerprintEnabled = false
+                viewModelScope.launch {
+                    preferencesDataStoreHelper.putBoolean(PrefKeys.IS_FINGERPRINT_ENABLED, false)
                 }
-                context.startActivity(enrollIntent)
+                _uiState.update {
+                    it.copy(
+                        isFingerprintEnabled = false,
+                        showFingerprintSetupDialog = true
+                    )
+                }
             }
 
             else -> {
-                Toast.makeText(context, "Thiết bị không hỗ trợ sinh trắc học!", Toast.LENGTH_SHORT)
-                    .show()
+                LockScreenState.isFingerprintEnabled = false
+                viewModelScope.launch {
+                    preferencesDataStoreHelper.putBoolean(PrefKeys.IS_FINGERPRINT_ENABLED, false)
+                }
+                _uiState.update { it.copy(isFingerprintEnabled = false) }
+                Toast.makeText(
+                    context,
+                    "Thiết bị không hỗ trợ cảm biến vân tay / sinh trắc học!",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }

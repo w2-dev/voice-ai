@@ -1,6 +1,7 @@
 #CORE / BUILD
 [versions]
 agp = "9.4.1"
+commonsCompress = "1.28.0"
 kotlin = "2.0.21"
 ksp = "2.0.21-1.0.28"
 room = "2.6.1"
@@ -77,6 +78,7 @@ androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "a
 androidx-multidex = { module = "androidx.multidex:multidex", version.ref = "multidex" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycleRuntimeKtx" }
+commons-compress = { module = "org.apache.commons:commons-compress", version.ref = "commonsCompress" }
 desugar_jdk_libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar_jdk_libs" }
 
 # Firebase (BOM)

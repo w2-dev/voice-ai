@@ -29,7 +29,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import com.tapbi.spark.ui_common_sdk.components.ui.AnimateDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -68,13 +67,16 @@ import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractor
 import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractorConfig
 import com.k2fsa.sherpa.onnx.Vad
 import com.k2fsa.sherpa.onnx.VadModelConfig
+import com.tapbi.spark.ui_common_sdk.components.ui.AnimateDialog
 import com.tapbi.spark.voiceai.R
-import com.tapbi.spark.voiceai.common.models.LockScreenState
 import com.tapbi.spark.voiceai.utils.ModelManager
+import com.tapbi.spark.voiceai.utils.VoiceUtils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun PassphraseSetupScreen(
@@ -95,44 +97,69 @@ fun PassphraseSetupScreen(
         if (uiState.isRecording) return
 
         viewModel.setRecording(true)
-        viewModel.updateStatusMessage("Đang ghi âm khẩu lệnh (tối đa 4s)...")
 
         coroutineScope.launch(Dispatchers.IO) {
+            // Ticker đếm ngược 4s -> 3s -> 2s -> 1s thời gian thực
+            val timerJob = coroutineScope.launch(Dispatchers.Main) {
+                var leftSec = 4
+                while (leftSec > 0 && viewModel.uiState.value.isRecording) {
+                    viewModel.updateStatusMessage("Đang ghi âm Lần ${viewModel.uiState.value.enrollmentStep} (${leftSec}s)...")
+                    delay(1000L.milliseconds)
+                    leftSec--
+                }
+            }
+
             try {
                 val sampleRate = 16000
                 val channelConfig = AudioFormat.CHANNEL_IN_MONO
                 val audioFormat = AudioFormat.ENCODING_PCM_16BIT
-                val minBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+                val minBufferSize =
+                    AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
 
                 if (ContextCompat.checkSelfPermission(
                         context,
                         Manifest.permission.RECORD_AUDIO
                     ) == PackageManager.PERMISSION_GRANTED
                 ) {
-                    val recorder = AudioRecord(
-                        MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                    val recorder = VoiceUtils.createAudioRecord(
                         sampleRate,
                         channelConfig,
                         audioFormat,
-                        maxOf(minBufferSize, 3200)
+                        minBufferSize
                     )
+
+                    if (recorder == null || recorder.state != AudioRecord.STATE_INITIALIZED) {
+                        timerJob.cancel()
+                        withContext(Dispatchers.Main) {
+                            viewModel.setRecording(false)
+                            viewModel.updateStatusMessage("❌ Micro bị bận hoặc không thể khởi tạo! Thử lại.")
+                        }
+                        return@launch
+                    }
 
                     val audioData = mutableListOf<Float>()
                     val buffer = ByteArray(512 * 2)
                     recorder.startRecording()
 
                     val startTime = System.currentTimeMillis()
-                    while (System.currentTimeMillis() - startTime < 4000) {
+                    while (System.currentTimeMillis() - startTime < 4000 && viewModel.uiState.value.isRecording) {
                         val readSize = recorder.read(buffer, 0, buffer.size)
                         if (readSize > 0) {
                             for (i in 0 until readSize step 2) {
-                                val s = ((buffer[i + 1].toInt() and 0xFF shl 8) or (buffer[i].toInt() and 0xFF)).toShort()
+                                val s =
+                                    ((buffer[i + 1].toInt() and 0xFF shl 8) or (buffer[i].toInt() and 0xFF)).toShort()
                                 audioData.add(s / 32768.0f)
                             }
                         }
                     }
                     recorder.stop()
                     recorder.release()
+                    timerJob.cancel()
+
+                    if (!viewModel.uiState.value.isRecording && viewModel.uiState.value.enrollmentStep == 1) {
+                        Timber.d("Recording cancelled by resetEnrollment()")
+                        return@launch
+                    }
 
                     val rawAudioArray = audioData.toFloatArray()
 
@@ -168,7 +195,8 @@ fun PassphraseSetupScreen(
 
                     var zipformerText: String
                     try {
-                        val recognizer = ModelManager.createRecognizer(context, uiState.languageCode)
+                        val recognizer =
+                            ModelManager.createRecognizer(context, uiState.languageCode)
                         val offlineStream = recognizer.createStream()
                         offlineStream.acceptWaveform(rawAudioArray, 16000)
                         recognizer.decode(offlineStream)
@@ -188,7 +216,7 @@ fun PassphraseSetupScreen(
 
                     // Extract Speaker Embedding
                     var extractedEmbedding: FloatArray? = null
-                    var vectorPreview = ""
+                    var vectorPreview: String
                     try {
                         val config = SpeakerEmbeddingExtractorConfig(
                             "model/3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx",
@@ -204,7 +232,9 @@ fun PassphraseSetupScreen(
                         stream.release()
                         extractor.release()
 
-                        vectorPreview = "Vector [96d]: [${extractedEmbedding.take(4).joinToString(", ") { "%.2f".format(it) }}...]"
+                        vectorPreview = "Vector [96d]: [${
+                            extractedEmbedding.take(4).joinToString(", ") { "%.2f".format(it) }
+                        }...]"
                         Timber.d("Speaker Embedding extracted successfully (size = ${extractedEmbedding.size})")
                     } catch (e: Throwable) {
                         Timber.e(e, "Error during SpeakerEmbeddingExtractor execution")
@@ -215,7 +245,7 @@ fun PassphraseSetupScreen(
                             !zipformerText.contains("Không nhận diện", ignoreCase = true) &&
                             !zipformerText.contains("Lỗi", ignoreCase = true)
 
-                    withContext<Unit>(Dispatchers.Main) {
+                    withContext(Dispatchers.Main) {
                         viewModel.setRecording(false)
 
                         if (isSuccessRecognition) {
@@ -223,7 +253,7 @@ fun PassphraseSetupScreen(
                                 zipformerText,
                                 extractedEmbedding,
                                 vectorPreview
-                            ) { isSuccess, msg, isFinished ->
+                            ) { _, msg, _ ->
                                 Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                             }
                         } else {
@@ -460,7 +490,10 @@ fun PassphraseSetupScreen(
                 text = uiState.statusMessage,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (uiState.statusMessage.contains("Thành công") || uiState.statusMessage.contains("Đã tải xong")) Color(0xFF2E7D32) else Color(0xFFFF5252),
+                color = if (uiState.statusMessage.contains("Thành công") || uiState.statusMessage.contains(
+                        "Đã tải xong"
+                    )
+                ) Color(0xFF2E7D32) else Color(0xFFFF5252),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
@@ -473,7 +506,7 @@ fun PassphraseSetupScreen(
                 .shadow(6.dp, CircleShape)
                 .clip(CircleShape)
                 .background(if (uiState.isRecording) Color(0xFFFF7043) else Color(0xFFFFD54F))
-                .clickable {
+                .clickable(enabled = !uiState.isRecording) {
                     if (viewModel.checkModelAndRecord(context)) {
                         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     }

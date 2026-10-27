@@ -28,13 +28,15 @@ import androidx.compose.ui.unit.IntSize
 @Composable
 fun PatternLock(
     modifier: Modifier = Modifier,
+    rows: Int = 3,
+    cols: Int = 3,
     isError: Boolean = false,
     clearTrigger: Any? = null,
-    lineColor: Color = MaterialTheme.colorScheme.primary, // Màu của đường kẻ
+    lineColor: Color = MaterialTheme.colorScheme.primary,
     errorColor: Color = MaterialTheme.colorScheme.error,
     inactiveColor: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-    dotImage: ImageBitmap? = null, // Ảnh dùng cho các chấm (chưa chọn)
-    dotImageSelected: ImageBitmap? = null, // Ảnh dùng cho các chấm (đã chọn)
+    dotImage: ImageBitmap? = null,
+    dotImageSelected: ImageBitmap? = null,
     onPatternComplete: (List<Int>) -> Unit
 ) {
     var selectedNodes by remember { mutableStateOf(emptyList<Int>()) }
@@ -52,7 +54,6 @@ fun PatternLock(
             .pointerInput(clearTrigger) {
                 detectDragGestures(
                     onDragStart = { offset ->
-                        // Xóa các trạng thái cũ khi bắt đầu vẽ mới
                         selectedNodes = emptyList()
                         currentDragPos = offset
                     },
@@ -74,14 +75,16 @@ fun PatternLock(
     ) {
         val canvasWidth = size.width
         val canvasHeight = size.height
-        val cellWidth = canvasWidth / 3
-        val cellHeight = canvasHeight / 3
-        val dotRadius = cellWidth / 8
+        val cellWidth = canvasWidth / cols
+        val cellHeight = canvasHeight / rows
+        val dotRadius = minOf(cellWidth, cellHeight) / 8
 
-        // Tính tọa độ trung tâm của 9 điểm
-        val nodeCenters = (0..8).map { index ->
-            val row = index / 3
-            val col = index % 3
+        val totalNodes = rows * cols
+
+        // Tính tọa độ trung tâm của các điểm trong lưới rows x cols
+        val nodeCenters = (0 until totalNodes).map { index ->
+            val row = index / cols
+            val col = index % cols
             Offset(
                 x = col * cellWidth + cellWidth / 2,
                 y = row * cellHeight + cellHeight / 2
@@ -90,9 +93,8 @@ fun PatternLock(
 
         // Logic bắt điểm khi lướt qua
         currentDragPos?.let { pos ->
-            // Khi vừa chạm vào (chưa drag qua điểm khác), cần kiểm tra xem có trúng điểm nào không
             if (selectedNodes.isEmpty()) {
-                for (i in 0..8) {
+                for (i in 0 until totalNodes) {
                     val distance = (pos - nodeCenters[i]).getDistance()
                     if (distance < dotRadius * 3) {
                         selectedNodes = listOf(i)
@@ -101,18 +103,19 @@ fun PatternLock(
                 }
             }
 
-            for (i in 0..8) {
+            for (i in 0 until totalNodes) {
                 if (!selectedNodes.contains(i)) {
                     val center = nodeCenters[i]
                     val distance = (pos - center).getDistance()
                     if (distance < dotRadius * 2) {
-                        selectedNodes = selectedNodes + i
+                        selectedNodes = addNodeWithIntermediate(selectedNodes, i, cols)
                     }
                 }
             }
         }
 
-        val currentLineColor = if (isError) errorColor else lineColor
+        val isCurrentlyDragging = currentDragPos != null
+        val currentLineColor = if (isError && !isCurrentlyDragging) errorColor else lineColor
 
         // Vẽ các đường thẳng nối giữa các điểm đã chọn
         if (selectedNodes.isNotEmpty()) {
@@ -122,7 +125,6 @@ fun PatternLock(
                 val center = nodeCenters[selectedNodes[i]]
                 path.lineTo(center.x, center.y)
             }
-            // Vẽ đường nối tới vị trí ngón tay hiện tại
             currentDragPos?.let {
                 path.lineTo(it.x, it.y)
             }
@@ -134,16 +136,14 @@ fun PatternLock(
             )
         }
 
-        // Vẽ 9 điểm chấm tròn (hoặc Image)
-        for (i in 0..8) {
+        // Vẽ các điểm chấm tròn
+        for (i in 0 until totalNodes) {
             val center = nodeCenters[i]
             val isSelected = selectedNodes.contains(i)
 
             val currentImage = if (isSelected) dotImageSelected else dotImage
 
             if (currentImage != null) {
-                // Nếu có truyền ảnh vào, ta sẽ vẽ ảnh
-                // Tính toán kích thước để ảnh vừa vặn với kích thước ô (hoặc theo radius)
                 val imageWidth = (dotRadius * if (isSelected) 3f else 2f).toInt()
                 val dstSize = IntSize(imageWidth, imageWidth)
                 val dstOffset = IntOffset(
@@ -151,7 +151,6 @@ fun PatternLock(
                     y = (center.y - imageWidth / 2f).toInt()
                 )
 
-                // Nếu đang lỗi mà điểm đó được chọn, vẽ một lớp tint đỏ đè lên ảnh
                 val colorFilter = if (isSelected && isError) ColorFilter.tint(
                     errorColor,
                     BlendMode.Modulate
@@ -164,13 +163,11 @@ fun PatternLock(
                     colorFilter = colorFilter
                 )
             } else {
-                // Rơi về trạng thái vẽ chấm tròn mặc định nếu không có ảnh
                 drawCircle(
                     color = if (isSelected) currentLineColor else inactiveColor,
                     radius = if (isSelected) dotRadius else dotRadius * 0.4f,
                     center = center
                 )
-                // Vẽ thêm 1 vòng sáng nhạt bên ngoài nếu điểm đó được chọn
                 if (isSelected) {
                     drawCircle(
                         color = currentLineColor.copy(alpha = 0.2f),
@@ -181,4 +178,35 @@ fun PatternLock(
             }
         }
     }
+}
+
+private fun addNodeWithIntermediate(currentList: List<Int>, newNode: Int, cols: Int): List<Int> {
+    if (currentList.contains(newNode)) return currentList
+    if (currentList.isEmpty()) return listOf(newNode)
+
+    val lastNode = currentList.last()
+    val intermediate = getIntermediateNode(lastNode, newNode, cols)
+
+    return if (intermediate != null && !currentList.contains(intermediate)) {
+        currentList + intermediate + newNode
+    } else {
+        currentList + newNode
+    }
+}
+
+private fun getIntermediateNode(indexA: Int, indexB: Int, cols: Int): Int? {
+    val rowA = indexA / cols
+    val colA = indexA % cols
+    val rowB = indexB / cols
+    val colB = indexB % cols
+
+    val dRow = rowB - rowA
+    val dCol = colB - colA
+
+    if (dRow % 2 == 0 && dCol % 2 == 0) {
+        val midRow = rowA + dRow / 2
+        val midCol = colA + dCol / 2
+        return midRow * cols + midCol
+    }
+    return null
 }

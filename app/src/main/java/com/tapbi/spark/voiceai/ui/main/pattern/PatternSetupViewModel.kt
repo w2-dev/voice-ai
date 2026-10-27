@@ -23,6 +23,29 @@ class PatternSetupViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(PatternUiState.EMPTY)
     val uiState = _uiState.asStateFlow()
 
+    fun selectGridType(rows: Int, cols: Int) {
+        LockScreenState.patternRows = rows
+        LockScreenState.patternCols = cols
+        _uiState.update {
+            it.copy(
+                selectedRows = rows,
+                selectedCols = cols,
+                isError = false
+            )
+        }
+    }
+
+    fun applyGridType() {
+        _uiState.update {
+            it.copy(
+                step = PatternSetupStep.FIRST_DRAW,
+                message = "Vẽ hình mẫu của bạn (Nối ít nhất 4 điểm)",
+                isError = false
+            )
+        }
+        navigation.openPatternSetup()
+    }
+
     fun onPatternDrawn(pattern: List<Int>) {
         if (pattern.size < 4) {
             _uiState.update {
@@ -35,10 +58,14 @@ class PatternSetupViewModel @Inject constructor(
         }
 
         when (_uiState.value.step) {
-            PatternStep.FIRST_DRAW -> {
+            PatternSetupStep.CHOOSE_TYPE -> {
+                applyGridType()
+            }
+
+            PatternSetupStep.FIRST_DRAW -> {
                 _uiState.update {
                     it.copy(
-                        step = PatternStep.CONFIRM_DRAW,
+                        step = PatternSetupStep.CONFIRM_DRAW,
                         firstPattern = pattern,
                         message = "Vẽ lại hình mẫu để xác nhận",
                         isError = false
@@ -46,11 +73,18 @@ class PatternSetupViewModel @Inject constructor(
                 }
             }
 
-            PatternStep.CONFIRM_DRAW -> {
+            PatternSetupStep.CONFIRM_DRAW -> {
                 if (pattern == _uiState.value.firstPattern) {
+                    val rows = _uiState.value.selectedRows
+                    val cols = _uiState.value.selectedCols
+                    LockScreenState.patternRows = rows
+                    LockScreenState.patternCols = cols
                     LockScreenState.targetPattern = pattern
                     LockScreenState.isPatternLockEnabled = true
+
                     viewModelScope.launch {
+                        preferencesDataStoreHelper.putInt(PrefKeys.PATTERN_GRID_ROWS, rows)
+                        preferencesDataStoreHelper.putInt(PrefKeys.PATTERN_GRID_COLS, cols)
                         preferencesDataStoreHelper.putString(
                             PrefKeys.PATTERN_LOCK_DATA,
                             pattern.joinToString(",")
@@ -62,7 +96,7 @@ class PatternSetupViewModel @Inject constructor(
                     }
                     _uiState.update {
                         it.copy(
-                            step = PatternStep.SUCCESS,
+                            step = PatternSetupStep.SUCCESS,
                             message = "Cài đặt hình vẽ thành công!",
                             isError = false,
                             hasSavedPattern = true
@@ -71,7 +105,7 @@ class PatternSetupViewModel @Inject constructor(
                 } else {
                     _uiState.update {
                         it.copy(
-                            step = PatternStep.FIRST_DRAW,
+                            step = PatternSetupStep.FIRST_DRAW,
                             firstPattern = null,
                             message = "Hình vẽ không khớp! Vui lòng thử lại từ đầu.",
                             isError = true
@@ -80,21 +114,27 @@ class PatternSetupViewModel @Inject constructor(
                 }
             }
 
-            PatternStep.SUCCESS -> {
-                // Already completed
+            PatternSetupStep.SUCCESS -> {
+                // Completed
             }
         }
     }
 
-    fun resetSetup() {
+    fun resetSetupState() {
         _uiState.update {
             it.copy(
-                step = PatternStep.FIRST_DRAW,
+                step = PatternSetupStep.CHOOSE_TYPE,
                 firstPattern = null,
-                message = "Vẽ hình mẫu của bạn (Nối ít nhất 4 điểm)",
-                isError = false
+                message = "Chọn kiểu lưới hình vẽ của bạn",
+                isError = false,
+                hasSavedPattern = LockScreenState.hasPatternSetup
             )
         }
+    }
+
+    fun resetSetup() {
+        resetSetupState()
+        navigation.popBackStack()
     }
 
     fun deletePattern() {
@@ -106,13 +146,18 @@ class PatternSetupViewModel @Inject constructor(
         }
         _uiState.update {
             it.copy(
-                step = PatternStep.FIRST_DRAW,
+                step = PatternSetupStep.CHOOSE_TYPE,
                 firstPattern = null,
                 message = "Đã xóa mật khẩu hình vẽ",
                 isError = false,
                 hasSavedPattern = false
             )
         }
+        navigateToHome()
+    }
+
+    fun navigateToHome() {
+        navigation.navigateTo(NavigationScreen.HomeScreen.route)
     }
 
     fun openPremium() {

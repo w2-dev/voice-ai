@@ -19,8 +19,10 @@ import com.tapbi.spark.voiceai.ui.main.language.LanguageScreen
 import com.tapbi.spark.voiceai.ui.main.language.LanguageViewModel
 import com.tapbi.spark.voiceai.ui.main.onboard.OnboardScreen
 import com.tapbi.spark.voiceai.ui.main.onboard.OnboardViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tapbi.spark.voiceai.ui.main.pattern.PatternSetupScreen
 import com.tapbi.spark.voiceai.ui.main.pattern.PatternSetupViewModel
+import com.tapbi.spark.voiceai.ui.main.pattern.components.PatternTypeSelectionScreen
 import com.tapbi.spark.voiceai.ui.main.pin.PinSetupScreen
 import com.tapbi.spark.voiceai.ui.main.pin.PinSetupViewModel
 import com.tapbi.spark.voiceai.ui.main.security.SecurityQuestionScreen
@@ -105,10 +107,32 @@ fun Navigation(
             )
         }
         animatedComposable(
-            NavigationScreen.PatternSetupScreen.route,
+            NavigationScreen.PatternTypeSelectionScreen.route,
             animType = NavAnimType.SlideAndFade
         ) {
             val viewModel = hiltViewModel<PatternSetupViewModel>()
+            val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
+            PatternTypeSelectionScreen(
+                uiState = uiState,
+                onBackClick = { viewModel.popBackStack() },
+                onPremiumClick = { viewModel.openPremium() },
+                onSelectType = { rows, cols -> viewModel.selectGridType(rows, cols) },
+                onApplyClick = { viewModel.applyGridType() },
+                onResetSetup = { viewModel.resetSetupState() }
+            )
+        }
+        animatedComposable(
+            NavigationScreen.PatternSetupScreen.route,
+            animType = NavAnimType.SlideAndFade
+        ) { backStackEntry ->
+            val parentEntry = androidx.compose.runtime.remember(backStackEntry) {
+                try {
+                    navController.getBackStackEntry(NavigationScreen.PatternTypeSelectionScreen.route)
+                } catch (_: Exception) {
+                    backStackEntry
+                }
+            }
+            val viewModel = hiltViewModel<PatternSetupViewModel>(parentEntry)
             PatternSetupScreen(
                 viewModel, modifier = Modifier
                     .padding(top = innerPadding.calculateTopPadding())

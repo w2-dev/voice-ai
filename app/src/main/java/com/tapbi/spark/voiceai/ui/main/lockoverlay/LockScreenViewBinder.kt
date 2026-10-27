@@ -17,6 +17,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.tapbi.spark.ui_common_sdk.foundation.AppTheme
 import com.tapbi.spark.voiceai.extension.isAtLeastApi26
 import com.tapbi.spark.voiceai.extension.isAtLeastApi28
+import com.tapbi.spark.voiceai.extension.isAtLeastApi29
 import com.tapbi.spark.voiceai.extension.isAtLeastApi30
 import com.tapbi.spark.voiceai.service.OverlayLifecycleOwner
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.themes.OverlayThemeConfig
@@ -39,7 +40,6 @@ class LockScreenViewBinder(
 
         @Suppress("DEPRECATION")
         val flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
                 WindowManager.LayoutParams.FLAG_FULLSCREEN or
                 WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
@@ -98,8 +98,19 @@ class LockScreenViewBinder(
 
             windowManager.addView(composeView, params)
 
-            // Hide status bar & system navigation bar
+            // Hide status bar & system navigation bar + Exclude System Gestures
             composeView?.post {
+                if (isAtLeastApi29) {
+                    try {
+                        val metrics = context.resources.displayMetrics
+                        val rect =
+                            android.graphics.Rect(0, 0, metrics.widthPixels, metrics.heightPixels)
+                        composeView?.systemGestureExclusionRects = listOf(rect)
+                    } catch (e: Exception) {
+                        Timber.tag(TAG).e(e, "Error setting systemGestureExclusionRects")
+                    }
+                }
+
                 if (isAtLeastApi30) {
                     composeView?.windowInsetsController?.apply {
                         hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())

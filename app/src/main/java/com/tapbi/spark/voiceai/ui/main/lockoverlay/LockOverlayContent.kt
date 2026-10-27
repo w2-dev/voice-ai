@@ -8,7 +8,6 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
-import android.media.MediaRecorder
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -38,6 +37,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -54,11 +54,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.k2fsa.sherpa.onnx.SileroVadModelConfig
-import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractor
-import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractorConfig
-import com.k2fsa.sherpa.onnx.Vad
-import com.k2fsa.sherpa.onnx.VadModelConfig
 import com.tapbi.spark.voiceai.common.Constant
 import com.tapbi.spark.voiceai.common.models.LockScreenState
 import com.tapbi.spark.voiceai.extension.hasRecordAudioPermission
@@ -73,13 +68,16 @@ import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.UnlockMethodChip
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.VoiceUnlockContent
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.themes.OverlayThemeConfig
 import com.tapbi.spark.voiceai.utils.ModelManager
+import com.tapbi.spark.voiceai.utils.VoiceUtils
 import com.tapbi.spark.voiceai.utils.cosineDistance
 import com.tapbi.spark.voiceai.utils.stringSimilarity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
 
 enum class OverlayUnlockMethod {
     VOICE,
@@ -118,6 +116,7 @@ fun LockOverlayContent(
     var biometricStatus by remember { mutableStateOf("") }
     var isRecording by remember { mutableStateOf(false) }
     var isPatternError by remember { mutableStateOf(false) }
+    var patternErrorCount by remember { mutableIntStateOf(0) }
     var pinInput by remember { mutableStateOf("") }
     var isPinError by remember { mutableStateOf(false) }
     var showSecurityOverlay by remember { mutableStateOf(false) }
@@ -175,15 +174,38 @@ fun LockOverlayContent(
         }
     }
 
+    LaunchedEffect(LockScreenState.speechLanguageCode) {
+        coroutineScope.launch(Dispatchers.IO) {
+            ModelManager.prewarmModels(context, LockScreenState.speechLanguageCode)
+        }
+    }
+
+    LaunchedEffect(patternErrorCount) {
+        if (patternErrorCount > 0) {
+            isPatternError = true
+            delay(1000L.milliseconds)
+            isPatternError = false
+        }
+    }
+
     fun startVoiceRecognition() {
         if (context.hasRecordAudioPermission()) {
             if (isRecording) return
             isRecording = true
-            voiceStatus = "Đang lắng nghe giọng nói (4s)..."
             recognizedTextInfo = ""
             vectorDistInfo = ""
 
             coroutineScope.launch(Dispatchers.IO) {
+                // Ticker đếm ngược 4s -> 3s -> 2s -> 1s hiển thị thời gian thực
+                val timerJob = coroutineScope.launch(Dispatchers.Main) {
+                    var leftSec = 4
+                    while (leftSec > 0 && isRecording) {
+                        voiceStatus = "Đang lắng nghe giọng nói (${leftSec}s)..."
+                        delay(1000L.milliseconds)
+                        leftSec--
+                    }
+                }
+
                 try {
                     val sampleRate = 16000
                     val channelConfig = AudioFormat.CHANNEL_IN_MONO
@@ -196,13 +218,21 @@ fun LockOverlayContent(
                             Manifest.permission.RECORD_AUDIO
                         ) == PackageManager.PERMISSION_GRANTED
                     ) {
-                        val recorder = AudioRecord(
-                            MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                        val recorder = VoiceUtils.createAudioRecord(
                             sampleRate,
                             channelConfig,
                             audioFormat,
-                            maxOf(minBufferSize, 3200)
+                            minBufferSize
                         )
+
+                        if (recorder == null || recorder.state != AudioRecord.STATE_INITIALIZED) {
+                            timerJob.cancel()
+                            withContext(Dispatchers.Main) {
+                                isRecording = false
+                                voiceStatus = "❌ Micro bị bận hoặc không thể khởi tạo! Thử lại."
+                            }
+                            return@launch
+                        }
 
                         val audioData = mutableListOf<Float>()
                         val buffer = ByteArray(512 * 2)
@@ -221,6 +251,7 @@ fun LockOverlayContent(
                         }
                         recorder.stop()
                         recorder.release()
+                        timerJob.cancel()
 
                         if (audioData.isEmpty()) {
                             withContext(Dispatchers.Main) {
@@ -235,23 +266,10 @@ fun LockOverlayContent(
                         // 1. Silero VAD check
                         var hasHumanSpeech = true
                         try {
-                            val vadConfig = VadModelConfig(
-                                sileroVadModelConfig = SileroVadModelConfig(
-                                    model = "model/silero_vad_16k_op15.onnx",
-                                    threshold = 0.3F,
-                                    minSilenceDuration = 0.25F,
-                                    minSpeechDuration = 0.15F,
-                                    windowSize = 512
-                                ),
-                                sampleRate = 16000,
-                                numThreads = 1,
-                                provider = "cpu"
-                            )
-                            val vad = Vad(context.assets, vadConfig)
+                            val vad = ModelManager.getOrNewVad(context)
                             vad.acceptWaveform(rawAudioArray)
                             vad.flush()
                             hasHumanSpeech = vad.isSpeechDetected() || !vad.empty()
-                            vad.release()
                         } catch (e: Throwable) {
                             Timber.w(e, "VAD check exception in overlay")
                         }
@@ -268,17 +286,14 @@ fun LockOverlayContent(
 
                         var zipformerText = ""
                         try {
-                            val recognizer = ModelManager.createRecognizer(
-                                context,
-                                activeLangCode
-                            )
+                            val recognizer =
+                                ModelManager.getOrNewRecognizer(context, activeLangCode)
                             val offlineStream = recognizer.createStream()
                             offlineStream.acceptWaveform(rawAudioArray, 16000)
                             recognizer.decode(offlineStream)
                             val result = recognizer.getResult(offlineStream)
                             zipformerText = result.text.trim()
                             offlineStream.release()
-                            recognizer.release()
                         } catch (e: Throwable) {
                             Timber.e(e, "Error Zipformer ASR on Overlay")
                         }
@@ -296,19 +311,12 @@ fun LockOverlayContent(
                         var calculatedDist = 1.0f
                         if (LockScreenState.referenceEmbedding != null) {
                             try {
-                                val config = SpeakerEmbeddingExtractorConfig(
-                                    "model/3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx",
-                                    2,
-                                    false,
-                                    "cpu"
-                                )
-                                val extractor = SpeakerEmbeddingExtractor(context.assets, config)
+                                val extractor = ModelManager.getOrNewExtractor(context)
                                 val stream = extractor.createStream()
                                 stream.acceptWaveform(rawAudioArray, 16000)
                                 stream.inputFinished()
                                 val testEmbedding = extractor.compute(stream)
                                 stream.release()
-                                extractor.release()
 
                                 calculatedDist = cosineDistance(
                                     testEmbedding,
@@ -576,11 +584,14 @@ fun LockOverlayContent(
                                     pinInput = newPin
                                     isPinError = false
                                     if (newPin.length == 4) {
-                                        if (newPin == LockScreenState.pinPassword) {
-                                            onUnlockClick()
-                                        } else {
-                                            isPinError = true
-                                            pinInput = ""
+                                        coroutineScope.launch {
+                                            delay(150L.milliseconds)
+                                            if (newPin == LockScreenState.pinPassword) {
+                                                onUnlockClick()
+                                            } else {
+                                                isPinError = true
+                                                pinInput = ""
+                                            }
                                         }
                                     }
                                 }
@@ -605,13 +616,14 @@ fun LockOverlayContent(
                     ) {
                         PatternUnlockContent(
                             isPatternError = isPatternError,
+                            clearTrigger = patternErrorCount,
                             onPatternComplete = { pattern ->
                                 val target = LockScreenState.targetPattern
                                 if (target.isNullOrEmpty() || pattern == target) {
                                     isPatternError = false
                                     onUnlockClick()
                                 } else {
-                                    isPatternError = true
+                                    patternErrorCount++
                                 }
                             }
                         )

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 @HiltViewModel
 class PinSetupViewModel @Inject constructor(
@@ -28,19 +29,26 @@ class PinSetupViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
 
     fun onKeyPadClick(digit: String) {
-        val current = _uiState.value.currentInput
+        val currentState = _uiState.value
+        if (currentState.step == 3 || currentState.isSuccess) return
+        val current = currentState.currentInput
         if (current.length >= 4) return
 
         val newPin = current + digit
         _uiState.update { it.copy(currentInput = newPin, isError = false) }
 
         if (newPin.length == 4) {
-            handlePinSubmitted(newPin)
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(150L.milliseconds)
+                handlePinSubmitted(newPin)
+            }
         }
     }
 
     fun onDeleteClick() {
-        val current = _uiState.value.currentInput
+        val currentState = _uiState.value
+        if (currentState.step == 3 || currentState.isSuccess) return
+        val current = currentState.currentInput
         if (current.isNotEmpty()) {
             _uiState.update { it.copy(currentInput = current.dropLast(1), isError = false) }
         }
@@ -54,18 +62,18 @@ class PinSetupViewModel @Inject constructor(
                     step = 2,
                     firstPin = pin,
                     currentInput = "",
-                    message = "Nhập lại mã PIN để xác nhận",
+                    message = "Nhập lại mã PIN để xác nhận (2/2)",
                     isError = false
                 )
             }
-        } else {
+        } else if (currentState.step == 2) {
             if (pin == currentState.firstPin) {
                 savePin(pin)
             } else {
                 _uiState.update {
                     it.copy(
                         currentInput = "",
-                        message = "Mã PIN không khớp! Vui lòng thử lại",
+                        message = "❌ Mã PIN không khớp! Vui lòng thử lại Lần 2",
                         isError = true
                     )
                 }
@@ -84,8 +92,11 @@ class PinSetupViewModel @Inject constructor(
 
         _uiState.update {
             it.copy(
-                message = "✅ Đã lưu mã PIN thành công!",
+                step = 3,
+                currentInput = pin,
+                message = "🎉 Cài đặt mã PIN thành công!",
                 isError = false,
+                isSuccess = true,
                 hasSavedPin = true
             )
         }
@@ -96,26 +107,36 @@ class PinSetupViewModel @Inject constructor(
         LockScreenState.isPinLockEnabled = false
 
         viewModelScope.launch {
-            preferencesDataStoreHelper.putString(PrefKeys.PIN_PASSWORD, "")
+            preferencesDataStoreHelper.removeKey(PrefKeys.PIN_PASSWORD)
             preferencesDataStoreHelper.putBoolean(PrefKeys.IS_PIN_LOCK_ENABLED, false)
         }
 
         _uiState.update {
             PinUiState(
+                step = 1,
                 message = "Đã xóa mã PIN",
                 hasSavedPin = false
             )
         }
+        navigation.navigateTo(NavigationScreen.HomeScreen.route)
     }
 
     fun resetSetup() {
         _uiState.update {
             PinUiState(
                 step = 1,
-                message = "Nhập mã PIN 4 chữ số",
+                firstPin = "",
+                currentInput = "",
+                message = "Nhập mã PIN 4 chữ số (1/2)",
+                isError = false,
+                isSuccess = false,
                 hasSavedPin = LockScreenState.hasPinSetup
             )
         }
+    }
+
+    fun navigateToHome() {
+        navigation.navigateTo(NavigationScreen.HomeScreen.route)
     }
 
     fun popBackStack() {
