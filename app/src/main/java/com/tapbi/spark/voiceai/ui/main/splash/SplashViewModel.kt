@@ -4,6 +4,8 @@ import android.app.Activity
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.viewModelScope
 import com.ironman.spark.billing.BillingManager
+import com.tapbi.spark.voiceai.App
+import com.tapbi.spark.voiceai.data.preferences.ServicePreferences
 import com.tapbi.spark.voiceai.navigation.MainNavigator
 import com.tapbi.spark.voiceai.ui.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,14 +24,21 @@ class SplashViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(SplashUiState.EMPTY)
     val uiState = _uiState.asStateFlow()
 
-    internal fun openHomeFromSplash() {
-        navigation.openHomeFromSplash()
+    internal fun openPremiumFromSplash() {
+        navigation.openPremiumFromSplash()
     }
 
     internal fun startSplashTimer() {
         viewModelScope.launch {
-            delay(2000L.milliseconds)
-            openHomeFromSplash()
+            delay(3000L.milliseconds)
+            val context = App.instance
+            ServicePreferences.setSplashCompleted(context, true)
+            val isFirst = ServicePreferences.isFirstLaunch(context)
+            if (isFirst) {
+                navigation.openLanguageFromSplash()
+            } else {
+                navigation.openHomeFromSplash()
+            }
         }
     }
 

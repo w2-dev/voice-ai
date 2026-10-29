@@ -178,6 +178,60 @@ class VoiceSetupViewModel @Inject constructor(
         }
     }
 
+    fun deleteVoicePassphrase() {
+        viewModelScope.launch {
+            voiceRepository.deleteVoicePassphrase()
+            resetEnrollment()
+            navigation.navigateTo(NavigationScreen.HomeScreen.route)
+        }
+    }
+
+    fun startEnrollmentRecording(context: Context) {
+        if (_uiState.value.isRecording) return
+        _uiState.update { it.copy(isRecording = true) }
+
+        viewModelScope.launch {
+            val result = voiceRepository.recordAndEnrollVoiceStep(
+                context = context,
+                languageCode = _uiState.value.languageCode,
+                onStatusUpdate = { msg ->
+                    updateStatusMessage(msg)
+                }
+            )
+
+            _uiState.update { it.copy(isRecording = false) }
+
+            when (result) {
+                is EnrollmentResult.StepSuccess -> {
+                    _uiState.update {
+                        it.copy(
+                            enrollmentStep = voiceRepository.currentEnrollmentStep,
+                            firstPassphrase = voiceRepository.firstPassphrase,
+                            recordedPassphrase = result.passphrase,
+                            statusMessage = result.message
+                        )
+                    }
+                }
+                is EnrollmentResult.CompleteSuccess -> {
+                    _uiState.update {
+                        it.copy(
+                            enrollmentStep = 4,
+                            recordedPassphrase = result.passphrase,
+                            statusMessage = result.message
+                        )
+                    }
+                }
+                is EnrollmentResult.MismatchError -> {
+                    _uiState.update {
+                        it.copy(
+                            statusMessage = result.message
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     fun processEnrollmentStep(
         recognizedText: String,
         embedding: FloatArray?,

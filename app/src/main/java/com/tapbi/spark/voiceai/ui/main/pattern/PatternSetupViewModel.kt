@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import com.tapbi.spark.voiceai.common.models.LockScreenState
 import com.tapbi.spark.voiceai.data.preferences.PrefKeys
 import com.tapbi.spark.voiceai.data.preferences.PreferencesDataStoreHelper
+import com.tapbi.spark.voiceai.data.preferences.ServicePreferences
 import com.tapbi.spark.voiceai.navigation.MainNavigator
 import com.tapbi.spark.voiceai.navigation.NavigationScreen
 import com.tapbi.spark.voiceai.ui.base.BaseViewModel
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 @HiltViewModel
 class PatternSetupViewModel @Inject constructor(
@@ -51,8 +53,13 @@ class PatternSetupViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     message = "Hình vẽ quá ngắn. Vẽ ít nhất 4 điểm.",
-                    isError = true
+                    isError = true,
+                    errorCount = it.errorCount + 1
                 )
+            }
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(1000L.milliseconds)
+                _uiState.update { it.copy(isError = false) }
             }
             return
         }
@@ -82,6 +89,13 @@ class PatternSetupViewModel @Inject constructor(
                     LockScreenState.targetPattern = pattern
                     LockScreenState.isPatternLockEnabled = true
 
+                    ServicePreferences.savePatternLock(
+                        com.tapbi.spark.voiceai.App.instance,
+                        true,
+                        rows,
+                        cols,
+                        pattern.joinToString(",")
+                    )
                     viewModelScope.launch {
                         preferencesDataStoreHelper.putInt(PrefKeys.PATTERN_GRID_ROWS, rows)
                         preferencesDataStoreHelper.putInt(PrefKeys.PATTERN_GRID_COLS, cols)
@@ -108,8 +122,13 @@ class PatternSetupViewModel @Inject constructor(
                             step = PatternSetupStep.FIRST_DRAW,
                             firstPattern = null,
                             message = "Hình vẽ không khớp! Vui lòng thử lại từ đầu.",
-                            isError = true
+                            isError = true,
+                            errorCount = it.errorCount + 1
                         )
+                    }
+                    viewModelScope.launch {
+                        kotlinx.coroutines.delay(1000L.milliseconds)
+                        _uiState.update { it.copy(isError = false) }
                     }
                 }
             }
@@ -146,6 +165,12 @@ class PatternSetupViewModel @Inject constructor(
     fun deletePattern() {
         LockScreenState.targetPattern = null
         LockScreenState.isPatternLockEnabled = false
+
+        com.tapbi.spark.voiceai.data.preferences.ServicePreferences.savePatternLock(
+            com.tapbi.spark.voiceai.App.instance,
+            false,
+            patternData = ""
+        )
         viewModelScope.launch {
             preferencesDataStoreHelper.removeKey(PrefKeys.PATTERN_LOCK_DATA)
             preferencesDataStoreHelper.putBoolean(PrefKeys.IS_PATTERN_LOCK_ENABLED, false)

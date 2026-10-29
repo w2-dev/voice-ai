@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import com.tapbi.spark.voiceai.common.models.LockScreenState
 import com.tapbi.spark.voiceai.data.preferences.PrefKeys
 import com.tapbi.spark.voiceai.data.preferences.PreferencesDataStoreHelper
+import com.tapbi.spark.voiceai.data.preferences.ServicePreferences
 import com.tapbi.spark.voiceai.navigation.MainNavigator
 import com.tapbi.spark.voiceai.navigation.NavigationScreen
 import com.tapbi.spark.voiceai.ui.base.BaseViewModel
@@ -85,6 +86,11 @@ class PinSetupViewModel @Inject constructor(
         LockScreenState.pinPassword = pin
         LockScreenState.isPinLockEnabled = true
 
+        ServicePreferences.savePinLock(
+            com.tapbi.spark.voiceai.App.instance,
+            true,
+            pin
+        )
         viewModelScope.launch {
             preferencesDataStoreHelper.putString(PrefKeys.PIN_PASSWORD, pin)
             preferencesDataStoreHelper.putBoolean(PrefKeys.IS_PIN_LOCK_ENABLED, true)
@@ -106,6 +112,11 @@ class PinSetupViewModel @Inject constructor(
         LockScreenState.pinPassword = ""
         LockScreenState.isPinLockEnabled = false
 
+        com.tapbi.spark.voiceai.data.preferences.ServicePreferences.savePinLock(
+            com.tapbi.spark.voiceai.App.instance,
+            false,
+            ""
+        )
         viewModelScope.launch {
             preferencesDataStoreHelper.removeKey(PrefKeys.PIN_PASSWORD)
             preferencesDataStoreHelper.putBoolean(PrefKeys.IS_PIN_LOCK_ENABLED, false)

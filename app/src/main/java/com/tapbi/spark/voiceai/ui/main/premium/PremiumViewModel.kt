@@ -30,7 +30,7 @@ class PremiumViewModel @Inject constructor(private val navigator: MainNavigator)
         if (billingModels.isEmpty()) {
             _uiState.update {
                 it.copy(
-                    contentState = ContentState.ERROR
+                    contentState = ContentState.LOADED
                 )
             }
             return
@@ -56,12 +56,31 @@ class PremiumViewModel @Inject constructor(private val navigator: MainNavigator)
         }
         _uiState.update {
             it.copy(
-                priceMonthly = month,
-                priceYearly = year,
-                priceLifeTime = lifeTime,
+                priceMonthly = month.ifBlank { "$2.99 / Month" },
+                priceYearly = year.ifBlank { "$19.99 / Year" },
+                priceLifeTime = lifeTime.ifBlank { "$49.99 Lifetime" },
                 contentState = ContentState.LOADED
             )
         }
+    }
+
+    fun selectPlan(plan: PlanType) {
+        _uiState.update { it.copy(selectedPlan = plan) }
+    }
+
+    fun subscribeSelectedPlan(activity: AppCompatActivity?) {
+        when (_uiState.value.selectedPlan) {
+            PlanType.MONTHLY -> onPurchaseMonth(activity)
+            PlanType.YEARLY -> onPurchaseYear(activity)
+            PlanType.LIFETIME -> onPurchaseLifeTime(activity)
+        }
+    }
+
+    fun openPolicy() {
+    }
+
+    fun queryCheckPro(activity: AppCompatActivity?) {
+        onClickRetry(activity)
     }
 
     fun onPurchaseMonth(activity: AppCompatActivity?) {
@@ -88,6 +107,11 @@ class PremiumViewModel @Inject constructor(private val navigator: MainNavigator)
             activity.showToast(activity.getString(com.ironman.spark.billing.R.string.billing_error_connection))
             BillingManager.retryBillingServiceIfNeeded(activity as MainActivity)
         }
+    }
+
+    fun onCloseClick(context: android.content.Context) {
+        com.tapbi.spark.voiceai.data.preferences.ServicePreferences.setFirstLaunch(context, false)
+        navigator.openHomeFromSplash()
     }
 
     fun popBackStack() {

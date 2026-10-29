@@ -3,12 +3,16 @@ package com.tapbi.spark.voiceai.common
 object Constant {
 
     // Broadcast Actions
-    const val ACTION_SECURITY_QUESTION_UNLOCK = "com.tapbi.spark.voiceai.ACTION_SECURITY_QUESTION_UNLOCK"
+    const val ACTION_SECURITY_QUESTION_UNLOCK =
+        "com.tapbi.spark.voiceai.ACTION_SECURITY_QUESTION_UNLOCK"
     const val ACTION_BIOMETRIC_UNLOCK = "com.tapbi.spark.voiceai.ACTION_BIOMETRIC_UNLOCK"
+    const val ACTION_BIOMETRIC_STARTED = "com.tapbi.spark.voiceai.ACTION_BIOMETRIC_STARTED"
+    const val ACTION_BIOMETRIC_CANCELLED = "com.tapbi.spark.voiceai.ACTION_BIOMETRIC_CANCELLED"
 
     // On-Device Model Paths
     const val MODEL_SILERO_VAD_PATH = "model/silero_vad_16k_op15.onnx"
-    const val MODEL_SPEAKER_CAMPPLUS_PATH = "model/3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx"
+    const val MODEL_SPEAKER_CAMPPLUS_PATH =
+        "model/3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx"
     const val MODEL_ZIPFORMER_ASSET_FOLDER = "model/zipformer"
 
     // Language Codes
@@ -26,8 +30,12 @@ object Constant {
     const val ITALIA_LANGUAGE_CODE = "it"
     const val INDONESIA_LANGUAGE_CODE = "in"
     const val THAI_LANGUAGE_CODE = "th"
-    const val CANTONESE_LANGUAGE_CODE = "yue"
     const val CHINESE_LANGUAGE_CODE = "zh"
+    const val ARABIC_LANGUAGE_CODE = "ar"
+    const val GREEK_LANGUAGE_CODE = "el"
+    const val MALAY_LANGUAGE_CODE = "ms"
+    const val DUTCH_LANGUAGE_CODE = "nl"
+    const val TAGALOG_LANGUAGE_CODE = "tl"
 
     // Official Zipformer ONNX Pretrained Model Download Links (.tar.bz2) - GitHub Releases (100% Verified)
     val ZIPFORMER_MODEL_URLS = mapOf(
@@ -39,6 +47,38 @@ object Constant {
         "ko-KR" to "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-korean-2024-06-24.tar.bz2",
         "th-TH" to "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-thai-2024-06-20.tar.bz2",
         "yue-HK" to "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-cantonese-2024-03-13.tar.bz2"
+    )
+
+    // Tải TRỰC TIẾP từng file int8 đã giải nén từ HuggingFace — bỏ qua hoàn toàn bước giải nén .tar.bz2
+    // (archive gốc chứa cả encoder FP32 rất lớn phải giải mã bz2 trước khi tới file int8).
+    // Đã verify qua HF API. Ngôn ngữ không có ở đây sẽ fallback về ZIPFORMER_MODEL_URLS.
+    private fun hfFiles(repo: String, tag: String) = listOf(
+        "https://huggingface.co/$repo/resolve/main/encoder-$tag.int8.onnx",
+        "https://huggingface.co/$repo/resolve/main/decoder-$tag.onnx",
+        "https://huggingface.co/$repo/resolve/main/joiner-$tag.int8.onnx",
+        "https://huggingface.co/$repo/resolve/main/tokens.txt"
+    )
+
+    val ZIPFORMER_DIRECT_FILES: Map<String, List<String>> = mapOf(
+        "ja-JP" to hfFiles("reazon-research/reazonspeech-k2-v2", "epoch-99-avg-1"),
+        "ko-KR" to hfFiles("k2-fsa/sherpa-onnx-zipformer-korean-2024-06-24", "epoch-99-avg-1"),
+        "zh-CN" to hfFiles("zrjin/sherpa-onnx-zipformer-multi-zh-hans-2023-9-2", "epoch-20-avg-1"),
+        "en-US" to hfFiles(
+            "csukuangfj/sherpa-onnx-zipformer-small-en-2023-06-26",
+            "epoch-99-avg-1"
+        ),
+        "th-TH" to listOf(
+            "https://huggingface.co/yfyeung/icefall-asr-gigaspeech2-th-zipformer-2024-06-20/resolve/main/exp/encoder-epoch-12-avg-5.int8.onnx",
+            "https://huggingface.co/yfyeung/icefall-asr-gigaspeech2-th-zipformer-2024-06-20/resolve/main/exp/decoder-epoch-12-avg-5.onnx",
+            "https://huggingface.co/yfyeung/icefall-asr-gigaspeech2-th-zipformer-2024-06-20/resolve/main/exp/joiner-epoch-12-avg-5.int8.onnx",
+            "https://huggingface.co/yfyeung/icefall-asr-gigaspeech2-th-zipformer-2024-06-20/resolve/main/data/lang_bpe_2000/tokens.txt"
+        ),
+        "yue-HK" to listOf(
+            "https://huggingface.co/zrjin/icefall-asr-mdcc-zipformer-2024-03-11/resolve/main/exp/encoder-epoch-45-avg-35.int8.onnx",
+            "https://huggingface.co/zrjin/icefall-asr-mdcc-zipformer-2024-03-11/resolve/main/exp/decoder-epoch-45-avg-35.onnx",
+            "https://huggingface.co/zrjin/icefall-asr-mdcc-zipformer-2024-03-11/resolve/main/exp/joiner-epoch-45-avg-35.int8.onnx",
+            "https://huggingface.co/zrjin/icefall-asr-mdcc-zipformer-2024-03-11/resolve/main/data/lang_char/tokens.txt"
+        )
     )
 
     // Supported Speech Languages Display Names

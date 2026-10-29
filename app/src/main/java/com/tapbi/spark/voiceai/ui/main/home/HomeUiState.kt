@@ -7,6 +7,7 @@ data class HomeUiState(
     val isPatternLockEnabled: Boolean = false,
     val isFingerprintEnabled: Boolean = false,
     val showFingerprintSetupDialog: Boolean = false,
+    val showPermissionDialog: Boolean = false,
     val isAiProtectionUpgraded: Boolean = false
 ) {
     companion object {

@@ -12,8 +12,12 @@ object VoiceUtils {
      * - HOẶC cùng số lượng từ và có độ tương đồng Levenshtein >= 75%
      */
     fun isStrictTextMatch(s1: String, s2: String, threshold: Double = 0.75): Boolean {
-        val t1 = s1.lowercase().trim()
-        val t2 = s2.lowercase().trim()
+        val c1 = cleanPassphraseText(s1)
+        val c2 = cleanPassphraseText(s2)
+        if (c1.isEmpty() || c2.isEmpty()) return false
+
+        val t1 = c1.lowercase()
+        val t2 = c2.lowercase()
         if (t1 == t2) return true
 
         val words1 = t1.split("\\s+".toRegex()).filter { it.isNotBlank() }
@@ -24,6 +28,28 @@ object VoiceUtils {
 
         val similarity = stringSimilarity(t1, t2)
         return similarity >= threshold
+    }
+
+    /**
+     * Làm sạch khẩu lệnh văn bản: loại bỏ các ký tự đặc biệt, dấu câu, thẻ <unk>, <sos>, <eos>
+     */
+    fun cleanPassphraseText(rawText: String): String {
+        return rawText
+            .replace(Regex("<[^>]*>"), "")
+            .replace(Regex("[^\\p{L}\\p{N}\\s]"), "")
+            .trim()
+    }
+
+    /**
+     * Tính năng lượng âm thanh RMS (Root Mean Square) để phát hiện im lặng
+     */
+    fun calculateRms(audioData: FloatArray): Float {
+        if (audioData.isEmpty()) return 0f
+        var sum = 0f
+        for (sample in audioData) {
+            sum += sample * sample
+        }
+        return kotlin.math.sqrt(sum / audioData.size)
     }
 
     /**

@@ -297,3 +297,12 @@
 -keepclassmembers class * {
     @androidx.compose.runtime.Composable *;
 }
+
+# Sherpa-ONNX JNI & ONNX Runtime Keep Rules
+-keep class com.k2fsa.sherpa.onnx.** { *; }
+-keepclassmembers class com.k2fsa.sherpa.onnx.** { *; }
+-keep class ai.onnxruntime.** { *; }
+-keepclassmembers class ai.onnxruntime.** { *; }
+-keepclasseswithmembernames class * {
+    native <methods>;
+}

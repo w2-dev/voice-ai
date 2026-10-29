@@ -9,9 +9,13 @@ interface MainNavigator {
 
     fun openLanguageFromSplash()
 
+    fun openPremiumFromSplash()
+
     fun openHomeFromSplash()
 
     fun openHomeFromOnboard()
+
+    fun openPremiumFromOnboard()
 
     fun openVoiceSetup()
 
@@ -52,6 +56,14 @@ internal class MainNavigatorImpl @Inject constructor(
         )
     }
 
+    override fun openPremiumFromSplash() {
+        routeNavigation.navigate(
+            NavigationScreen.PremiumScreen.route,
+            popToRoute = NavigationScreen.SplashScreen.route,
+            inclusive = true,
+        )
+    }
+
     override fun openHomeFromSplash() {
         routeNavigation.navigate(
             NavigationScreen.HomeScreen.route,
@@ -63,6 +75,14 @@ internal class MainNavigatorImpl @Inject constructor(
     override fun openHomeFromOnboard() {
         routeNavigation.navigate(
             NavigationScreen.HomeScreen.route,
+            popToRoute = NavigationScreen.OnboardScreen.route,
+            inclusive = true,
+        )
+    }
+
+    override fun openPremiumFromOnboard() {
+        routeNavigation.navigate(
+            NavigationScreen.PremiumScreen.route,
             popToRoute = NavigationScreen.OnboardScreen.route,
             inclusive = true,
         )

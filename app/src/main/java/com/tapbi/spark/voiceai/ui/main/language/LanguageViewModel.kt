@@ -1,14 +1,15 @@
 package com.tapbi.spark.voiceai.ui.main.language
 
 import androidx.lifecycle.viewModelScope
-import com.tapbi.spark.voiceai.ads.feature.AdsUiState
+import com.tapbi.spark.ui_common_sdk.components.ContentState
 import com.tapbi.spark.voiceai.App
+import com.tapbi.spark.voiceai.ads.feature.AdsUiState
 import com.tapbi.spark.voiceai.data.preferences.PrefKeys
 import com.tapbi.spark.voiceai.data.preferences.PreferencesDataStoreHelper
+import com.tapbi.spark.voiceai.data.preferences.ServicePreferences
 import com.tapbi.spark.voiceai.navigation.MainNavigator
 import com.tapbi.spark.voiceai.ui.base.BaseViewModel
 import com.tapbi.spark.voiceai.utils.LocaleUtils
-import com.tapbi.spark.ui_common_sdk.components.ContentState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,7 +69,7 @@ class LanguageViewModel @Inject constructor(
         navigation.finishApp()
     }
 
-    internal fun closeAdsFull(){
+    internal fun closeAdsFull() {
         _uiState.update { it.copy(adsUiState = AdsUiState(false, "")) }
     }
 }

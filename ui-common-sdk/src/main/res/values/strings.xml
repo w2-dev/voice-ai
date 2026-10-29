@@ -1,17 +1,23 @@
-<resources>
-    <string name="english" translatable="false">English</string>
-    <string name="german" translatable="false">Deutsch</string>
-    <string name="spanish" translatable="false">Español</string>
-    <string name="french" translatable="false">Français</string>
-    <string name="indian_hindi" translatable="false">भारतीय (हिंदी)</string>
-    <string name="italian" translatable="false">Italiana</string>
-    <string name="indonesian" translatable="false">Indonesia</string>
-    <string name="japanese" translatable="false">日本語</string>
-    <string name="korean" translatable="false">한국인</string>
-    <string name="portuguese" translatable="false">Portuguese</string>
-    <string name="russian" translatable="false">Русский</string>
-    <string name="thai" translatable="false">แบบไทย</string>
-    <string name="vn" translatable="false">Tiếng Việt</string>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="english">English</string>
+    <string name="german">German</string>
+    <string name="spanish">Spanish</string>
+    <string name="french">French</string>
+    <string name="indian_hindi">Hindi</string>
+    <string name="italian">Italian</string>
+    <string name="indonesian">Indonesian</string>
+    <string name="japanese">Japanese</string>
+    <string name="korean">Korean</string>
+    <string name="portuguese">Portuguese</string>
+    <string name="russian">Russian</string>
+    <string name="thai">Thai</string>
+    <string name="vn">Vietnamese</string>
+    <string name="arabic">Arabic</string>
+    <string name="chinese">Chinese</string>
+    <string name="dutch">Dutch</string>
+    <string name="greek">Greek</string>
+    <string name="malay">Malay</string>
+    <string name="tagalog">Tagalog</string>
     <string name="please_rate_5_star">Please rate 5 star!</string>
     <string name="no_internet_connection_found_check_your_connection">No internet connection found check your connection</string>
     <string name="purchase_success">Purchase Success</string>

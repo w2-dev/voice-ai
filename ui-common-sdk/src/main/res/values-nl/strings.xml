@@ -1,0 +1,22 @@
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="languages">Talen</string>
+    <string name="english">Engels</string>
+    <string name="korean">Koreans</string>
+    <string name="vn">Vietnamees</string>
+    <string name="portuguese">Portugees</string>
+    <string name="german">Duits</string>
+    <string name="indian_hindi">Hindi</string>
+    <string name="russian">Russisch</string>
+    <string name="japanese">Japans</string>
+    <string name="spanish">Spaans</string>
+    <string name="french">Frans</string>
+    <string name="italian">Italiaans</string>
+    <string name="indonesian">Indonesisch</string>
+    <string name="arabic">Arabisch</string>
+    <string name="chinese">Chinees</string>
+    <string name="greek">Grieks</string>
+    <string name="malay">Maleis</string>
+    <string name="dutch">Nederlands</string>
+    <string name="tagalog">Tagalog</string>
+    <string name="thai">Thais</string>
+</resources>

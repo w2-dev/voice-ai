@@ -1,13 +1,9 @@
 package com.tapbi.spark.voiceai.ui.main.lockoverlay
 
-import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
-import android.media.AudioFormat
-import android.media.AudioRecord
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -56,6 +52,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.tapbi.spark.voiceai.common.Constant
 import com.tapbi.spark.voiceai.common.models.LockScreenState
+import com.tapbi.spark.voiceai.data.preferences.ServicePreferences
+import com.tapbi.spark.voiceai.data.repository.VoiceRepository
+import com.tapbi.spark.voiceai.data.repository.VoiceUnlockResult
 import com.tapbi.spark.voiceai.extension.hasRecordAudioPermission
 import com.tapbi.spark.voiceai.ui.main.biometric.BiometricActivity
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.FingerprintUnlockContent
@@ -68,13 +67,9 @@ import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.UnlockMethodChip
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.VoiceUnlockContent
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.themes.OverlayThemeConfig
 import com.tapbi.spark.voiceai.utils.ModelManager
-import com.tapbi.spark.voiceai.utils.VoiceUtils
-import com.tapbi.spark.voiceai.utils.cosineDistance
-import com.tapbi.spark.voiceai.utils.stringSimilarity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import timber.log.Timber
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
@@ -110,6 +105,31 @@ fun LockOverlayContent(
         )
     }
 
+    LaunchedEffect(Unit) {
+        ServicePreferences.loadLockScreenStateSync(context)
+    }
+
+    LaunchedEffect(
+        LockScreenState.isPatternLockEnabled,
+        LockScreenState.targetPattern,
+        LockScreenState.hasPatternSetup,
+        LockScreenState.isVoiceLockEnabled,
+        LockScreenState.voicePassphrase,
+        LockScreenState.hasVoiceSetup,
+        LockScreenState.isFingerprintEnabled,
+        LockScreenState.isPinLockEnabled,
+        LockScreenState.pinPassword,
+        LockScreenState.hasPinSetup
+    ) {
+        selectedMethod = when {
+            LockScreenState.isPatternLockEnabled && LockScreenState.hasPatternSetup -> OverlayUnlockMethod.PATTERN
+            LockScreenState.isVoiceLockEnabled && LockScreenState.hasVoiceSetup -> OverlayUnlockMethod.VOICE
+            LockScreenState.isFingerprintEnabled -> OverlayUnlockMethod.FINGERPRINT
+            LockScreenState.isPinLockEnabled && LockScreenState.hasPinSetup -> OverlayUnlockMethod.PIN
+            else -> OverlayUnlockMethod.SWIPE
+        }
+    }
+
     var voiceStatus by remember { mutableStateOf("") }
     var recognizedTextInfo by remember { mutableStateOf("") }
     var vectorDistInfo by remember { mutableStateOf("") }
@@ -125,7 +145,7 @@ fun LockOverlayContent(
         biometricStatus = "Đang chờ xác thực vân tay / sinh trắc học..."
         try {
             val intent = Intent(context, BiometricActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
             context.startActivity(intent)
         } catch (e: Exception) {
@@ -195,211 +215,48 @@ fun LockOverlayContent(
             recognizedTextInfo = ""
             vectorDistInfo = ""
 
-            coroutineScope.launch(Dispatchers.IO) {
-                // Ticker đếm ngược 4s -> 3s -> 2s -> 1s hiển thị thời gian thực
-                val timerJob = coroutineScope.launch(Dispatchers.Main) {
-                    var leftSec = 4
-                    while (leftSec > 0 && isRecording) {
-                        voiceStatus = "Đang lắng nghe giọng nói (${leftSec}s)..."
-                        delay(1000L.milliseconds)
-                        leftSec--
+            coroutineScope.launch {
+                val result = VoiceRepository.getInstance(context).recordAndVerifyVoiceUnlock(
+                    context = context,
+                    langCode = LockScreenState.speechLanguageCode,
+                    targetPassphrase = LockScreenState.voicePassphrase,
+                    referenceEmbedding = LockScreenState.referenceEmbedding,
+                    onStatusUpdate = { status ->
+                        voiceStatus = status
                     }
-                }
+                )
 
-                try {
-                    val sampleRate = 16000
-                    val channelConfig = AudioFormat.CHANNEL_IN_MONO
-                    val audioFormat = AudioFormat.ENCODING_PCM_16BIT
-                    val minBufferSize =
-                        AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+                isRecording = false
 
-                    if (ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.RECORD_AUDIO
-                        ) == PackageManager.PERMISSION_GRANTED
-                    ) {
-                        val recorder = VoiceUtils.createAudioRecord(
-                            sampleRate,
-                            channelConfig,
-                            audioFormat,
-                            minBufferSize
-                        )
-
-                        if (recorder == null || recorder.state != AudioRecord.STATE_INITIALIZED) {
-                            timerJob.cancel()
-                            withContext(Dispatchers.Main) {
-                                isRecording = false
-                                voiceStatus = "❌ Micro bị bận hoặc không thể khởi tạo! Thử lại."
-                            }
-                            return@launch
-                        }
-
-                        val audioData = mutableListOf<Float>()
-                        val buffer = ByteArray(512 * 2)
-
-                        try {
-                            recorder.startRecording()
-                            val startTime = System.currentTimeMillis()
-                            while (System.currentTimeMillis() - startTime < 4000) {
-                                val readSize = recorder.read(buffer, 0, buffer.size)
-                                if (readSize > 0) {
-                                    for (i in 0 until readSize step 2) {
-                                        val s =
-                                            ((buffer[i + 1].toInt() and 0xFF shl 8) or (buffer[i].toInt() and 0xFF)).toShort()
-                                        audioData.add(s / 32768.0f)
-                                    }
-                                }
-                            }
-                        } finally {
-                            try {
-                                recorder.stop()
-                            } catch (e: Exception) {
-                                Timber.w(e)
-                            }
-                            try {
-                                recorder.release()
-                            } catch (e: Exception) {
-                                Timber.w(e)
-                            }
-                            timerJob.cancel()
-                        }
-
-                        if (audioData.isEmpty()) {
-                            withContext(Dispatchers.Main) {
-                                isRecording = false
-                                voiceStatus = "Không ghi nhận được âm thanh! Thử lại."
-                            }
-                            return@launch
-                        }
-
-                        val rawAudioArray = audioData.toFloatArray()
-
-                        // 1. Silero VAD check
-                        var hasHumanSpeech = true
-                        try {
-                            val vad = ModelManager.getOrNewVad(context)
-                            vad.acceptWaveform(rawAudioArray)
-                            vad.flush()
-                            hasHumanSpeech = vad.isSpeechDetected() || !vad.empty()
-                        } catch (e: Throwable) {
-                            Timber.w(e, "VAD check exception in overlay")
-                        }
-
-                        // 2. Zipformer ASR Text Match
-                        val activeLangCode = LockScreenState.speechLanguageCode
-                        if (!ModelManager.isModelDownloaded(context, activeLangCode)) {
-                            withContext(Dispatchers.Main) {
-                                isRecording = false
-                                voiceStatus = "⚠️ Vui lòng mở App tải mô hình cho $activeLangCode!"
-                            }
-                            return@launch
-                        }
-
-                        var zipformerText = ""
-                        try {
-                            val recognizer =
-                                ModelManager.getOrNewRecognizer(context, activeLangCode)
-                            val offlineStream = recognizer.createStream()
-                            offlineStream.acceptWaveform(rawAudioArray, 16000)
-                            recognizer.decode(offlineStream)
-                            val result = recognizer.getResult(offlineStream)
-                            zipformerText = result.text.trim()
-                            offlineStream.release()
-                        } catch (e: Throwable) {
-                            Timber.e(e, "Error Zipformer ASR on Overlay")
-                        }
-
-                        if (!hasHumanSpeech && zipformerText.isBlank()) {
-                            withContext(Dispatchers.Main) {
-                                isRecording = false
-                                voiceStatus = "Không nghe thấy giọng nói! Thử lại."
-                            }
-                            return@launch
-                        }
-
-                        // 3. Speaker Embedding Verification
-                        var isSpeakerMatched = false
-                        var calculatedDist = 1.0f
-                        if (LockScreenState.referenceEmbedding != null) {
-                            try {
-                                val extractor = ModelManager.getOrNewExtractor(context)
-                                val stream = extractor.createStream()
-                                stream.acceptWaveform(rawAudioArray, 16000)
-                                stream.inputFinished()
-                                val testEmbedding = extractor.compute(stream)
-                                stream.release()
-
-                                calculatedDist = cosineDistance(
-                                    testEmbedding,
-                                    LockScreenState.referenceEmbedding!!
+                when (result) {
+                    is VoiceUnlockResult.Success -> {
+                        recognizedTextInfo = "ASR Text: \"${result.recognizedText}\""
+                        vectorDistInfo = if (LockScreenState.referenceEmbedding != null) {
+                            "Cosine Distance: ${"%.4f".format(result.distance)} (Ngưỡng < 0.45) | Similarity: ${
+                                "%.1f".format(
+                                    result.similarity * 100
                                 )
-                                if (calculatedDist < 0.45f) {
-                                    isSpeakerMatched = true
-                                }
-                            } catch (e: Throwable) {
-                                Timber.e(e, "Error SpeakerEmbeddingExtractor on Overlay")
-                            }
+                            }%"
                         } else {
-                            isSpeakerMatched = true
+                            "Similarity: ${"%.1f".format(result.similarity * 100)}%"
                         }
-
-                        // Check Keyword Similarity
-                        val targetKeyword = LockScreenState.voicePassphrase
-                        val similarity = if (targetKeyword.isNotBlank()) {
-                            stringSimilarity(
-                                zipformerText.lowercase().trim(),
-                                targetKeyword.lowercase().trim()
-                            )
-                        } else {
-                            0.0
-                        }
-
-                        val isTextMatched = targetKeyword.isBlank() || similarity >= 0.3 ||
-                                zipformerText.contains(targetKeyword, ignoreCase = true) ||
-                                targetKeyword.contains(zipformerText, ignoreCase = true)
-
-                        val isUnlockSuccessful = if (LockScreenState.referenceEmbedding != null) {
-                            isSpeakerMatched && isTextMatched
-                        } else {
-                            isTextMatched
-                        }
-
-                        withContext(Dispatchers.Main) {
-                            isRecording = false
-                            recognizedTextInfo =
-                                if (zipformerText.isNotBlank()) "ASR Text: \"$zipformerText\"" else "ASR Text: (Không nhận diện từ)"
-                            vectorDistInfo = if (LockScreenState.referenceEmbedding != null) {
-                                "Cosine Distance: ${"%.4f".format(calculatedDist)} (Ngưỡng < 0.45) | Similarity: ${
-                                    "%.1f".format(
-                                        similarity * 100
-                                    )
-                                }%"
-                            } else {
-                                "Similarity: ${"%.1f".format(similarity * 100)}%"
-                            }
-
-                            if (isUnlockSuccessful) {
-                                voiceStatus = "✅ XÁC THỰC THÀNH CÔNG! Mở khóa..."
-                                onUnlockClick()
-                            } else {
-                                voiceStatus = when {
-                                    !isTextMatched && !isSpeakerMatched -> "❌ Khai báo sai khẩu lệnh và không đúng giọng nói!"
-                                    !isTextMatched -> "❌ Sai khẩu lệnh từ khóa!"
-                                    else -> "❌ Khẩu lệnh đúng nhưng KHÁC giọng người đăng ký!"
-                                }
-                            }
-                        }
-                    } else {
-                        withContext(Dispatchers.Main) {
-                            isRecording = false
-                            voiceStatus = "Chưa cấp quyền RECORD_AUDIO!"
-                        }
+                        voiceStatus = "✅ XÁC THỰC THÀNH CÔNG! Mở khóa..."
+                        onUnlockClick()
                     }
-                } catch (e: Exception) {
-                    Timber.e(e, "Error in voice recognition on overlay")
-                    withContext(Dispatchers.Main) {
-                        isRecording = false
-                        voiceStatus = "Lỗi: ${e.localizedMessage}"
+
+                    is VoiceUnlockResult.Failure -> {
+                        recognizedTextInfo =
+                            if (result.recognizedText.isNotBlank()) "ASR Text: \"${result.recognizedText}\"" else "ASR Text: (Không nhận diện từ)"
+                        vectorDistInfo = if (LockScreenState.referenceEmbedding != null) {
+                            "Cosine Distance: ${"%.4f".format(result.distance)} (Ngưỡng < 0.45) | Similarity: ${
+                                "%.1f".format(
+                                    result.similarity * 100
+                                )
+                            }%"
+                        } else {
+                            "Similarity: ${"%.1f".format(result.similarity * 100)}%"
+                        }
+                        voiceStatus = result.errorMessage
                     }
                 }
             }
@@ -541,7 +398,7 @@ fun LockOverlayContent(
                         )
                     }
 
-                    if (LockScreenState.isPatternLockEnabled) {
+                    if (LockScreenState.isPatternLockEnabled && LockScreenState.hasPatternSetup) {
                         UnlockMethodChip(
                             icon = "🎨",
                             label = "Hình vẽ",

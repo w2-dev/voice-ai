@@ -177,7 +177,7 @@ fun PatternSetupScreen(
                 rows = uiState.selectedRows,
                 cols = uiState.selectedCols,
                 isError = uiState.isError,
-                clearTrigger = Pair(uiState.step, uiState.message),
+                clearTrigger = Triple(uiState.step, uiState.message, uiState.errorCount),
                 onPatternComplete = { pattern ->
                     viewModel.onPatternDrawn(pattern)
                 }

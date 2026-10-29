@@ -1,25 +1,30 @@
 package com.tapbi.spark.voiceai.common.models
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+
 object LockScreenState {
-    var isLockScreenActive: Boolean = false
+    var isLockScreenActive by mutableStateOf(false)
 
-    var isVoiceLockEnabled: Boolean = false
-    var voicePassphrase: String = ""
-    var referenceEmbedding: FloatArray? = null
-    var speechLanguageCode: String = "vi-VN"
+    var isVoiceLockEnabled by mutableStateOf(false)
+    var voicePassphrase by mutableStateOf("")
+    var referenceEmbedding by mutableStateOf<FloatArray?>(null)
+    var speechLanguageCode by mutableStateOf("vi-VN")
 
-    var isPinLockEnabled: Boolean = false
-    var pinPassword: String = ""
+    var isPinLockEnabled by mutableStateOf(false)
+    var pinPassword by mutableStateOf("")
 
-    var isPatternLockEnabled: Boolean = false
-    var patternRows: Int = 3
-    var patternCols: Int = 3
-    var targetPattern: List<Int>? = null
+    var isPatternLockEnabled by mutableStateOf(false)
+    var patternRows by mutableIntStateOf(3)
+    var patternCols by mutableIntStateOf(3)
+    var targetPattern by mutableStateOf<List<Int>?>(null)
 
-    var isFingerprintEnabled: Boolean = false
+    var isFingerprintEnabled by mutableStateOf(false)
 
-    var securityQuestionIndex: Int = 0
-    var securityAnswer: String = ""
+    var securityQuestionIndex by mutableIntStateOf(0)
+    var securityAnswer by mutableStateOf("")
 
     val SAMPLE_SECURITY_QUESTIONS = listOf(
         "Món ăn bạn yêu thích nhất là gì?",

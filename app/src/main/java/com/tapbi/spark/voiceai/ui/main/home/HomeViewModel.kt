@@ -9,10 +9,11 @@ import androidx.lifecycle.viewModelScope
 import com.tapbi.spark.voiceai.common.models.LockScreenState
 import com.tapbi.spark.voiceai.data.preferences.PrefKeys
 import com.tapbi.spark.voiceai.data.preferences.PreferencesDataStoreHelper
+import com.tapbi.spark.voiceai.data.preferences.ServicePreferences
 import com.tapbi.spark.voiceai.extension.hasOverlayPermission
+import com.tapbi.spark.voiceai.extension.hasRecordAudioPermission
 import com.tapbi.spark.voiceai.extension.isAtLeastApi26
 import com.tapbi.spark.voiceai.extension.isAtLeastApi30
-import com.tapbi.spark.voiceai.extension.openOverlayPermissionSettings
 import com.tapbi.spark.voiceai.navigation.MainNavigator
 import com.tapbi.spark.voiceai.navigation.NavigationScreen
 import com.tapbi.spark.voiceai.service.LockScreenService
@@ -85,6 +86,24 @@ class HomeViewModel @Inject constructor(
             LockScreenState.securityQuestionIndex = qIndex
             LockScreenState.securityAnswer = qAnswer
 
+            // Sync all settings into ServicePreferences (SharedPreferences)
+            ServicePreferences.syncFromDataStoreOrPrefs(
+                context = context,
+                isActive = isActive,
+                isVoice = isVoice,
+                voicePass = voicePass,
+                speechLang = speechLang,
+                isPin = isPin,
+                pinPass = pinPass,
+                isPattern = isPattern,
+                patternRows = pRows,
+                patternCols = pCols,
+                patternStr = patternStr,
+                isFingerprint = isFingerprint,
+                qIndex = qIndex,
+                qAnswer = qAnswer
+            )
+
             ensureLockServiceStarted()
 
             _uiState.update {
@@ -102,40 +121,68 @@ class HomeViewModel @Inject constructor(
     fun ensureLockServiceStarted() {
         if (LockScreenState.isLockScreenActive && context.hasOverlayPermission()) {
             val intent = Intent(context, LockScreenService::class.java)
-            if (isAtLeastApi26) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            try {
+                if (isAtLeastApi26) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error starting LockScreenService")
             }
         }
     }
 
-    fun toggleLockScreenActive(context: Context, enabled: Boolean) {
-        if (enabled) {
-            // Check Overlay Permission using extension
-            if (!context.hasOverlayPermission()) {
-                context.openOverlayPermissionSettings()
-                return
-            }
+    fun showPermissionDialog() {
+        _uiState.update { it.copy(showPermissionDialog = true) }
+    }
 
-            // Start Foreground Service
-            val intent = Intent(context, LockScreenService::class.java)
+    fun dismissPermissionDialog() {
+        _uiState.update { it.copy(showPermissionDialog = false) }
+    }
+
+    fun enableLockScreenFromDialog(context: Context) {
+        dismissPermissionDialog()
+        ServicePreferences.setServiceEnabled(context, true)
+        val intent = Intent(context, LockScreenService::class.java)
+        try {
             if (isAtLeastApi26) {
                 context.startForegroundService(intent)
             } else {
                 context.startService(intent)
             }
-        } else {
-            // Stop Foreground Service
-            val intent = Intent(context, LockScreenService::class.java)
-            context.stopService(intent)
+        } catch (e: Exception) {
+            Timber.e(e, "Error starting LockScreenService")
         }
 
-        LockScreenState.isLockScreenActive = enabled
+        LockScreenState.isLockScreenActive = true
         viewModelScope.launch {
-            preferencesDataStoreHelper.putBoolean(PrefKeys.IS_LOCK_SCREEN_ACTIVE, enabled)
+            preferencesDataStoreHelper.putBoolean(PrefKeys.IS_LOCK_SCREEN_ACTIVE, true)
         }
-        _uiState.update { it.copy(isLockScreenActive = enabled) }
+        _uiState.update { it.copy(isLockScreenActive = true) }
+    }
+
+    fun toggleLockScreenActive(context: Context, enabled: Boolean) {
+        if (enabled) {
+            val hasOverlay = context.hasOverlayPermission()
+            val hasAudio = context.hasRecordAudioPermission()
+            if (!hasOverlay || !hasAudio) {
+                showPermissionDialog()
+                return
+            }
+            enableLockScreenFromDialog(context)
+        } else {
+            dismissPermissionDialog()
+            ServicePreferences.setServiceEnabled(context, false)
+            val intent = Intent(context, LockScreenService::class.java)
+            context.stopService(intent)
+
+            LockScreenState.isLockScreenActive = false
+            viewModelScope.launch {
+                preferencesDataStoreHelper.putBoolean(PrefKeys.IS_LOCK_SCREEN_ACTIVE, false)
+            }
+            _uiState.update { it.copy(isLockScreenActive = false) }
+        }
     }
 
     fun toggleVoiceLock(enabled: Boolean) {
@@ -144,6 +191,7 @@ class HomeViewModel @Inject constructor(
             return
         }
         LockScreenState.isVoiceLockEnabled = enabled
+        ServicePreferences.saveVoiceLock(context, enabled)
         viewModelScope.launch {
             preferencesDataStoreHelper.putBoolean(PrefKeys.IS_VOICE_LOCK_ENABLED, enabled)
         }
@@ -156,6 +204,7 @@ class HomeViewModel @Inject constructor(
             return
         }
         LockScreenState.isPinLockEnabled = enabled
+        ServicePreferences.savePinLock(context, enabled)
         viewModelScope.launch {
             preferencesDataStoreHelper.putBoolean(PrefKeys.IS_PIN_LOCK_ENABLED, enabled)
         }
@@ -168,6 +217,7 @@ class HomeViewModel @Inject constructor(
             return
         }
         LockScreenState.isPatternLockEnabled = enabled
+        ServicePreferences.savePatternLock(context, enabled)
         viewModelScope.launch {
             preferencesDataStoreHelper.putBoolean(PrefKeys.IS_PATTERN_LOCK_ENABLED, enabled)
         }
@@ -179,6 +229,7 @@ class HomeViewModel @Inject constructor(
             setupFingerprintAuth(context)
         } else {
             LockScreenState.isFingerprintEnabled = false
+            ServicePreferences.saveFingerprintLock(context, false)
             viewModelScope.launch {
                 preferencesDataStoreHelper.putBoolean(PrefKeys.IS_FINGERPRINT_ENABLED, false)
             }
@@ -241,6 +292,7 @@ class HomeViewModel @Inject constructor(
         when (biometricManager.canAuthenticate(authenticators)) {
             BiometricManager.BIOMETRIC_SUCCESS -> {
                 LockScreenState.isFingerprintEnabled = true
+                ServicePreferences.saveFingerprintLock(context, true)
                 viewModelScope.launch {
                     preferencesDataStoreHelper.putBoolean(PrefKeys.IS_FINGERPRINT_ENABLED, true)
                 }

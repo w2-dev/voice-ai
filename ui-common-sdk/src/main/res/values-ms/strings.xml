@@ -1,0 +1,22 @@
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="languages">Bahasa</string>
+    <string name="english">Bahasa Inggeris</string>
+    <string name="korean">Bahasa Korea</string>
+    <string name="vn">Bahasa Vietnam</string>
+    <string name="portuguese">Bahasa Portugis</string>
+    <string name="german">Bahasa Jerman</string>
+    <string name="indian_hindi">Bahasa Hindi</string>
+    <string name="russian">Bahasa Rusia</string>
+    <string name="japanese">Bahasa Jepun</string>
+    <string name="spanish">Bahasa Sepanyol</string>
+    <string name="french">Bahasa Perancis</string>
+    <string name="italian">Bahasa Itali</string>
+    <string name="indonesian">Bahasa Indonesia</string>
+    <string name="arabic">Bahasa Arab</string>
+    <string name="chinese">Bahasa Cina</string>
+    <string name="greek">Bahasa Yunani</string>
+    <string name="malay">Bahasa Melayu</string>
+    <string name="dutch">Bahasa Belanda</string>
+    <string name="tagalog">Bahasa Tagalog</string>
+    <string name="thai">Bahasa Thai</string>
+</resources>

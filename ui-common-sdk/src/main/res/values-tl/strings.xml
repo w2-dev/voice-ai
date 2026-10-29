@@ -1,0 +1,22 @@
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="languages">Mga Wika</string>
+    <string name="english">Ingles</string>
+    <string name="korean">Koreano</string>
+    <string name="vn">Biyetnames</string>
+    <string name="portuguese">Purtuges</string>
+    <string name="german">Aleman</string>
+    <string name="indian_hindi">Hindi</string>
+    <string name="russian">Ruso</string>
+    <string name="japanese">Hapon</string>
+    <string name="spanish">Espanyol</string>
+    <string name="french">Pranses</string>
+    <string name="italian">Italyano</string>
+    <string name="indonesian">Indonesyo</string>
+    <string name="arabic">Arabe</string>
+    <string name="chinese">Intsik</string>
+    <string name="greek">Griyego</string>
+    <string name="malay">Malay</string>
+    <string name="dutch">Olandes</string>
+    <string name="tagalog">Tagalog</string>
+    <string name="thai">Thai</string>
+</resources>

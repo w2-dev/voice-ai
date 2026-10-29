@@ -147,7 +147,10 @@ class OnlineRecognizer(
 
     companion object {
         init {
-            System.loadLibrary("sherpa-onnx-jni")
+            try {
+                com.tapbi.spark.voiceai.utils.NativeLibLoader.ensureLoaded()
+            } catch (_: Throwable) {
+            }
         }
 
         @JvmStatic

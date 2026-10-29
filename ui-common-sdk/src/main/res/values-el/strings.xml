@@ -1,0 +1,22 @@
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="languages">Γλώσσες</string>
+    <string name="english">Αγγλικά</string>
+    <string name="korean">Κορεατικά</string>
+    <string name="vn">Βιετναμικά</string>
+    <string name="portuguese">Πορτογαλικά</string>
+    <string name="german">Γερμανικά</string>
+    <string name="indian_hindi">Χίντι</string>
+    <string name="russian">Ρωσικά</string>
+    <string name="japanese">Ιαπωνικά</string>
+    <string name="spanish">Ισπανικά</string>
+    <string name="french">Γαλλικά</string>
+    <string name="italian">Ιταλικά</string>
+    <string name="indonesian">Ινδονησιακά</string>
+    <string name="arabic">Αραβικά</string>
+    <string name="chinese">Κινεζικά</string>
+    <string name="greek">Ελληνικά</string>
+    <string name="malay">Μαλαϊκά</string>
+    <string name="dutch">Ολλανδικά</string>
+    <string name="tagalog">Ταγκαλόγκ</string>
+    <string name="thai">Ταϊλανδικά</string>
+</resources>

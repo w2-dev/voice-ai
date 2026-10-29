@@ -90,185 +90,11 @@ fun PassphraseSetupScreen(
         }
     }
 
-    fun recordAndExtractEmbedding() {
-        if (uiState.isRecording) return
-
-        viewModel.setRecording(true)
-
-        coroutineScope.launch(Dispatchers.IO) {
-            // Ticker đếm ngược 4s -> 3s -> 2s -> 1s thời gian thực
-            val timerJob = coroutineScope.launch(Dispatchers.Main) {
-                var leftSec = 4
-                while (leftSec > 0 && viewModel.uiState.value.isRecording) {
-                    viewModel.updateStatusMessage("Đang ghi âm Lần ${viewModel.uiState.value.enrollmentStep} (${leftSec}s)...")
-                    delay(1000L.milliseconds)
-                    leftSec--
-                }
-            }
-
-            try {
-                val sampleRate = 16000
-                val channelConfig = AudioFormat.CHANNEL_IN_MONO
-                val audioFormat = AudioFormat.ENCODING_PCM_16BIT
-                val minBufferSize =
-                    AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
-
-                if (ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.RECORD_AUDIO
-                    ) == PackageManager.PERMISSION_GRANTED
-                ) {
-                    val recorder = VoiceUtils.createAudioRecord(
-                        sampleRate,
-                        channelConfig,
-                        audioFormat,
-                        minBufferSize
-                    )
-
-                    if (recorder == null || recorder.state != AudioRecord.STATE_INITIALIZED) {
-                        timerJob.cancel()
-                        withContext(Dispatchers.Main) {
-                            viewModel.setRecording(false)
-                            viewModel.updateStatusMessage("❌ Micro bị bận hoặc không thể khởi tạo! Thử lại.")
-                        }
-                        return@launch
-                    }
-
-                    val audioData = mutableListOf<Float>()
-                    val buffer = ByteArray(512 * 2)
-
-                    try {
-                        recorder.startRecording()
-                        val startTime = System.currentTimeMillis()
-                        while (System.currentTimeMillis() - startTime < 4000 && viewModel.uiState.value.isRecording) {
-                            val readSize = recorder.read(buffer, 0, buffer.size)
-                            if (readSize > 0) {
-                                for (i in 0 until readSize step 2) {
-                                    val s =
-                                        ((buffer[i + 1].toInt() and 0xFF shl 8) or (buffer[i].toInt() and 0xFF)).toShort()
-                                    audioData.add(s / 32768.0f)
-                                }
-                            }
-                        }
-                    } finally {
-                        try {
-                            recorder.stop()
-                        } catch (e: Exception) {
-                            Timber.w(e)
-                        }
-                        try {
-                            recorder.release()
-                        } catch (e: Exception) {
-                            Timber.w(e)
-                        }
-                        timerJob.cancel()
-                    }
-
-                    if (!viewModel.uiState.value.isRecording && viewModel.uiState.value.enrollmentStep == 1) {
-                        Timber.d("Recording cancelled by resetEnrollment()")
-                        return@launch
-                    }
-
-                    // Immediately mark recording as finished & Micro released!
-                    withContext(Dispatchers.Main) {
-                        viewModel.setRecording(false)
-                        viewModel.updateStatusMessage("Đang xử lý & nhận diện khẩu lệnh...")
-                    }
-
-                    val rawAudioArray = audioData.toFloatArray()
-
-                    // Optional Silero VAD check
-                    try {
-                        val vad = ModelManager.getOrNewVad(context)
-                        vad.acceptWaveform(rawAudioArray)
-                        vad.flush()
-                    } catch (e: Throwable) {
-                        Timber.w(e, "Silero VAD check exception")
-                    }
-
-                    var zipformerText: String
-                    try {
-                        val recognizer =
-                            ModelManager.getOrNewRecognizer(context, uiState.languageCode)
-                        val offlineStream = recognizer.createStream()
-                        offlineStream.acceptWaveform(rawAudioArray, 16000)
-                        recognizer.decode(offlineStream)
-                        val result = recognizer.getResult(offlineStream)
-                        zipformerText = result.text.trim()
-                        if (zipformerText.isBlank()) {
-                            zipformerText = "Không nhận diện được từ"
-                        }
-
-                        offlineStream.release()
-                        Timber.d("Zipformer ASR text result: '$zipformerText'")
-                    } catch (e: Throwable) {
-                        Timber.e(e, "Error during Zipformer ASR execution")
-                        zipformerText = "Lỗi Zipformer: ${e.localizedMessage}"
-                    }
-
-                    // Extract Speaker Embedding
-                    var extractedEmbedding: FloatArray? = null
-                    var vectorPreview: String
-                    try {
-                        val extractor = ModelManager.getOrNewExtractor(context)
-                        val stream = extractor.createStream()
-                        stream.acceptWaveform(rawAudioArray, 16000)
-                        stream.inputFinished()
-                        extractedEmbedding = extractor.compute(stream)
-                        stream.release()
-
-                        vectorPreview = "Vector [96d]: [${
-                            extractedEmbedding.take(4).joinToString(", ") { "%.2f".format(it) }
-                        }...]"
-                        Timber.d("Speaker Embedding extracted successfully (size = ${extractedEmbedding.size})")
-                    } catch (e: Throwable) {
-                        Timber.e(e, "Error during SpeakerEmbeddingExtractor execution")
-                        vectorPreview = "Lỗi trích xuất Vector: ${e.localizedMessage}"
-                    }
-
-                    val isSuccessRecognition = zipformerText.isNotBlank() &&
-                            !zipformerText.contains("Không nhận diện", ignoreCase = true) &&
-                            !zipformerText.contains("Lỗi", ignoreCase = true)
-
-                    withContext(Dispatchers.Main) {
-                        if (isSuccessRecognition) {
-                            viewModel.processEnrollmentStep(
-                                zipformerText,
-                                extractedEmbedding,
-                                vectorPreview
-                            ) { _, msg, _ ->
-                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                            }
-                        } else {
-                            Toast.makeText(
-                                context,
-                                "❌ Lần ${uiState.enrollmentStep} thất bại! Không nghe rõ từ, vui lòng thử lại.",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            viewModel.updateStatusMessage("❌ Lần ${uiState.enrollmentStep} không nhận diện được từ! Thử lại.")
-                        }
-                    }
-                } else {
-                    withContext<Unit>(Dispatchers.Main) {
-                        viewModel.setRecording(false)
-                        viewModel.updateStatusMessage("Chưa cấp quyền RECORD_AUDIO!")
-                    }
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Exception during voice setup")
-                withContext<Unit>(Dispatchers.Main) {
-                    viewModel.setRecording(false)
-                    viewModel.updateStatusMessage("❌ Lỗi: ${e.localizedMessage}")
-                }
-            }
-        }
-    }
-
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            recordAndExtractEmbedding()
+            viewModel.startEnrollmentRecording(context)
         }
     }
 
@@ -603,11 +429,7 @@ fun PassphraseSetupScreen(
                 ButtonApp(
                     text = "Xóa Mật Khẩu Giọng Nói",
                     onClick = {
-                        LockScreenState.voicePassphrase = ""
-                        LockScreenState.referenceEmbedding = null
-                        LockScreenState.isVoiceLockEnabled = false
-                        viewModel.resetEnrollment()
-                        viewModel.popBackStack()
+                        viewModel.deleteVoicePassphrase()
                     },
                     style = ButtonAppStyle.DANGER,
                     modifier = Modifier.fillMaxWidth(),

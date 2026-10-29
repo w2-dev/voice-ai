@@ -13,18 +13,33 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.tapbi.spark.voiceai.R
+import com.tapbi.spark.voiceai.common.Constant
 import com.tapbi.spark.voiceai.common.models.LockScreenState
+import com.tapbi.spark.voiceai.data.preferences.PrefKeys
+import com.tapbi.spark.voiceai.data.preferences.PreferencesDataStoreHelper
+import com.tapbi.spark.voiceai.data.preferences.ServicePreferences
 import com.tapbi.spark.voiceai.extension.isAtLeastApi26
 import com.tapbi.spark.voiceai.extension.isAtLeastApi29
 import com.tapbi.spark.voiceai.extension.isAtLeastApi33
 import com.tapbi.spark.voiceai.extension.isAtLeastApi34
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.LockScreenViewBinder
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class LockScreenService : Service() {
+
+    @Inject
+    lateinit var preferencesDataStoreHelper: PreferencesDataStoreHelper
 
     private var viewBinder: LockScreenViewBinder? = null
     private var screenReceiver: BroadcastReceiver? = null
+    private var internalReceiver: BroadcastReceiver? = null
     private var isScreenOff = false
 
     companion object {
@@ -66,6 +81,61 @@ class LockScreenService : Service() {
 
         initViewBinder()
         registerScreenReceiver()
+        loadLockScreenState()
+    }
+
+    private fun loadLockScreenState(onLoaded: (() -> Unit)? = null) {
+        // Load synchronously from ServicePreferences first (instantaneous < 1ms)
+        ServicePreferences.loadLockScreenStateSync(this)
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val isActive = ServicePreferences.isServiceEnabled(this@LockScreenService) ||
+                        preferencesDataStoreHelper.getBoolean(PrefKeys.IS_LOCK_SCREEN_ACTIVE, false)
+                val isVoice =
+                    preferencesDataStoreHelper.getBoolean(PrefKeys.IS_VOICE_LOCK_ENABLED, false)
+                val voicePass = preferencesDataStoreHelper.getString(PrefKeys.VOICE_PASSPHRASE, "")
+                val speechLang =
+                    preferencesDataStoreHelper.getString(PrefKeys.SELECTED_SPEECH_LANGUAGE, "vi-VN")
+                val isPin =
+                    preferencesDataStoreHelper.getBoolean(PrefKeys.IS_PIN_LOCK_ENABLED, false)
+                val pinPass = preferencesDataStoreHelper.getString(PrefKeys.PIN_PASSWORD, "")
+                val isPattern =
+                    preferencesDataStoreHelper.getBoolean(PrefKeys.IS_PATTERN_LOCK_ENABLED, false)
+                val patternStr =
+                    preferencesDataStoreHelper.getString(PrefKeys.PATTERN_LOCK_DATA, "")
+                val isFingerprint =
+                    preferencesDataStoreHelper.getBoolean(PrefKeys.IS_FINGERPRINT_ENABLED, false)
+                val qIndex = preferencesDataStoreHelper.getInt(PrefKeys.SECURITY_QUESTION_INDEX, 0)
+                val qAnswer = preferencesDataStoreHelper.getString(PrefKeys.SECURITY_ANSWER, "")
+
+                val pRows = preferencesDataStoreHelper.getInt(PrefKeys.PATTERN_GRID_ROWS, 3)
+                val pCols = preferencesDataStoreHelper.getInt(PrefKeys.PATTERN_GRID_COLS, 3)
+
+                ServicePreferences.syncFromDataStoreOrPrefs(
+                    context = this@LockScreenService,
+                    isActive = isActive,
+                    isVoice = isVoice,
+                    voicePass = voicePass,
+                    speechLang = speechLang,
+                    isPin = isPin,
+                    pinPass = pinPass,
+                    isPattern = isPattern,
+                    patternRows = pRows,
+                    patternCols = pCols,
+                    patternStr = patternStr,
+                    isFingerprint = isFingerprint,
+                    qIndex = qIndex, qAnswer = qAnswer
+                )
+
+                Timber.tag(TAG).d("LockScreenState loaded asynchronously from DataStore")
+                withContext(Dispatchers.Main) {
+                    onLoaded?.invoke()
+                }
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Error loading LockScreenState from DataStore")
+            }
+        }
     }
 
     private fun initViewBinder() {
@@ -100,55 +170,102 @@ class LockScreenService : Service() {
     }
 
     private fun registerScreenReceiver() {
-        if (screenReceiver != null) return
+        if (screenReceiver == null) {
+            screenReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    Timber.tag(TAG).d("screenReceiver onReceive: action = ${intent?.action}")
+                    when (intent?.action) {
+                        Intent.ACTION_SCREEN_OFF -> {
+                            Timber.tag(TAG).d("ACTION_SCREEN_OFF received. Showing lock overlay.")
+                            isScreenOff = true
+                            showLockScreen()
+                        }
 
-        screenReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                Timber.tag(TAG).d("BroadcastReceiver onReceive: action = ${intent?.action}")
-                when (intent?.action) {
-                    Intent.ACTION_SCREEN_OFF -> {
-                        Timber.tag(TAG).d("ACTION_SCREEN_OFF received.")
-                        isScreenOff = true
-                    }
+                        Intent.ACTION_SCREEN_ON -> {
+                            Timber.tag(TAG).d("ACTION_SCREEN_ON received. Showing lock overlay.")
+                            showLockScreen()
+                        }
 
-                    Intent.ACTION_SCREEN_ON -> {
-                        Timber.tag(TAG).d("ACTION_SCREEN_ON received. Showing overlay.")
-                        showLockScreen()
-                    }
-
-                    Intent.ACTION_USER_PRESENT -> {
-                        Timber.tag(TAG).d("ACTION_USER_PRESENT received.")
+                        Intent.ACTION_USER_PRESENT -> {
+                            Timber.tag(TAG).d("ACTION_USER_PRESENT received.")
+                        }
                     }
                 }
             }
+
+            val screenFilter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_USER_PRESENT)
+            }
+
+            try {
+                if (isAtLeastApi33) {
+                    ContextCompat.registerReceiver(
+                        this,
+                        screenReceiver,
+                        screenFilter,
+                        ContextCompat.RECEIVER_NOT_EXPORTED
+                    )
+                } else {
+                    registerReceiver(screenReceiver, screenFilter)
+                }
+                Timber.tag(TAG).d("ScreenReceiver registered successfully.")
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Error registering ScreenReceiver")
+            }
         }
 
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_SCREEN_OFF)
-            addAction(Intent.ACTION_SCREEN_ON)
-            addAction(Intent.ACTION_USER_PRESENT)
-        }
+        if (internalReceiver == null) {
+            internalReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    Timber.tag(TAG).d("internalReceiver onReceive: action = ${intent?.action}")
+                    when (intent?.action) {
+                        Constant.ACTION_BIOMETRIC_STARTED -> {
+                            Timber.tag(TAG).d("ACTION_BIOMETRIC_STARTED received.")
+                        }
 
-        try {
-            if (isAtLeastApi33) {
+                        Constant.ACTION_BIOMETRIC_CANCELLED -> {
+                            Timber.tag(TAG).d("ACTION_BIOMETRIC_CANCELLED received.")
+                        }
+
+                        Constant.ACTION_BIOMETRIC_UNLOCK,
+                        Constant.ACTION_SECURITY_QUESTION_UNLOCK -> {
+                            Timber.tag(TAG).d("Unlock action received via BroadcastReceiver")
+                            hideLockScreen()
+                        }
+                    }
+                }
+            }
+
+            val internalFilter = IntentFilter().apply {
+                addAction(Constant.ACTION_BIOMETRIC_STARTED)
+                addAction(Constant.ACTION_BIOMETRIC_CANCELLED)
+                addAction(Constant.ACTION_BIOMETRIC_UNLOCK)
+                addAction(Constant.ACTION_SECURITY_QUESTION_UNLOCK)
+            }
+
+            try {
                 ContextCompat.registerReceiver(
                     this,
-                    screenReceiver,
-                    filter,
-                    ContextCompat.RECEIVER_EXPORTED
+                    internalReceiver,
+                    internalFilter,
+                    ContextCompat.RECEIVER_NOT_EXPORTED
                 )
-            } else {
-                registerReceiver(screenReceiver, filter)
+                Timber.tag(TAG).d("InternalReceiver registered successfully.")
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Error registering InternalReceiver")
             }
-            Timber.tag(TAG).d("ScreenReceiver registered successfully.")
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error registering ScreenReceiver")
         }
     }
 
     private fun showLockScreen() {
-        Timber.tag(TAG).d("showLockScreen() called | isLockScreenActive = ${LockScreenState.isLockScreenActive}")
-        if (!LockScreenState.isLockScreenActive) {
+        ServicePreferences.loadLockScreenStateSync(this)
+        val isActive =
+            ServicePreferences.isServiceEnabled(this) || LockScreenState.isLockScreenActive
+        Timber.tag(TAG)
+            .d("showLockScreen() called | isLockScreenActive = $isActive")
+        if (!isActive) {
             Timber.tag(TAG).d("Lock screen active switch is OFF, skipping overlay show")
             return
         }
@@ -167,9 +284,15 @@ class LockScreenService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Timber.tag(TAG).d("onStartCommand()")
+        Timber.tag(TAG).d("onStartCommand() action = ${intent?.action}")
         initViewBinder()
         registerScreenReceiver()
+        loadLockScreenState()
+
+        if (intent?.getBooleanExtra("SHOW_IMMEDIATELY", false) == true) {
+            showLockScreen()
+        }
+
         return START_STICKY
     }
 
@@ -186,9 +309,18 @@ class LockScreenService : Service() {
                 unregisterReceiver(it)
                 Timber.tag(TAG).d("ScreenReceiver unregistered.")
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Error unregistering receiver")
+                Timber.tag(TAG).e(e, "Error unregistering ScreenReceiver")
             }
             screenReceiver = null
+        }
+        internalReceiver?.let {
+            try {
+                unregisterReceiver(it)
+                Timber.tag(TAG).d("InternalReceiver unregistered.")
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Error unregistering InternalReceiver")
+            }
+            internalReceiver = null
         }
     }
 }

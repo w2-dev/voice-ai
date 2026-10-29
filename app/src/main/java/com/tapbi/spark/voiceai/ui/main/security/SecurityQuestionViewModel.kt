@@ -132,6 +132,11 @@ class SecurityQuestionViewModel @Inject constructor(
         LockScreenState.securityQuestionIndex = index
         LockScreenState.securityAnswer = answer
 
+        com.tapbi.spark.voiceai.data.preferences.ServicePreferences.saveSecurityQuestion(
+            com.tapbi.spark.voiceai.App.instance,
+            index,
+            answer
+        )
         viewModelScope.launch {
             preferencesDataStoreHelper.putInt(PrefKeys.SECURITY_QUESTION_INDEX, index)
             preferencesDataStoreHelper.putString(PrefKeys.SECURITY_ANSWER, answer)

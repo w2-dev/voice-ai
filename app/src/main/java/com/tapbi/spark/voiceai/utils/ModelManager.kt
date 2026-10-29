@@ -11,16 +11,20 @@ import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractor
 import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractorConfig
 import com.k2fsa.sherpa.onnx.Vad
 import com.k2fsa.sherpa.onnx.VadModelConfig
+import com.tapbi.spark.voiceai.common.Constant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import android.os.Handler
+import android.os.Looper
 import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.FilterInputStream
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
-
-import com.tapbi.spark.voiceai.common.Constant
 
 object ModelManager {
 
@@ -46,6 +50,7 @@ object ModelManager {
 
     @Synchronized
     fun getOrNewRecognizer(context: Context, languageCode: String = "vi-VN"): OfflineRecognizer {
+        NativeLibLoader.ensureLoaded()
         if (cachedRecognizer != null && cachedRecognizerLang == languageCode) {
             return cachedRecognizer!!
         }
@@ -122,9 +127,24 @@ object ModelManager {
         //   - decoder.onnx       (FP32 only, no int8 variant)
         //   - joiner.int8.onnx   (int8 required)
         //   - tokens file
-        val hasInt8Encoder = allFiles.any { it.name.contains("encoder", ignoreCase = true) && it.name.contains("int8", ignoreCase = true) }
-        val hasDecoder = allFiles.any { it.name.contains("decoder", ignoreCase = true) && it.name.endsWith(".onnx") && !it.name.contains("int8", ignoreCase = true) }
-        val hasInt8Joiner = allFiles.any { it.name.contains("joiner", ignoreCase = true) && it.name.contains("int8", ignoreCase = true) }
+        val hasInt8Encoder = allFiles.any {
+            it.name.contains(
+                "encoder",
+                ignoreCase = true
+            ) && it.name.contains("int8", ignoreCase = true)
+        }
+        val hasDecoder = allFiles.any {
+            it.name.contains(
+                "decoder",
+                ignoreCase = true
+            ) && it.name.endsWith(".onnx") && !it.name.contains("int8", ignoreCase = true)
+        }
+        val hasInt8Joiner = allFiles.any {
+            it.name.contains("joiner", ignoreCase = true) && it.name.contains(
+                "int8",
+                ignoreCase = true
+            )
+        }
         val hasTokens = allFiles.any { it.name.contains("tokens", ignoreCase = true) }
 
         val isComplete = hasInt8Encoder && hasDecoder && hasInt8Joiner && hasTokens
@@ -145,15 +165,21 @@ object ModelManager {
             //   decoder → *.onnx       (no int8 variant exists; decoder is small FP32, safe)
             //   joiner  → *.int8.onnx  (MUST be int8)
             val encoderFile = allFiles.firstOrNull {
-                it.name.contains("encoder", ignoreCase = true) && it.name.contains("int8", ignoreCase = true)
+                it.name.contains("encoder", ignoreCase = true) && it.name.contains(
+                    "int8",
+                    ignoreCase = true
+                )
             }
             val decoderFile = allFiles.firstOrNull {
                 it.name.contains("decoder", ignoreCase = true)
-                    && it.name.endsWith(".onnx")
-                    && !it.name.contains("int8", ignoreCase = true)
+                        && it.name.endsWith(".onnx")
+                        && !it.name.contains("int8", ignoreCase = true)
             }
             val joinerFile = allFiles.firstOrNull {
-                it.name.contains("joiner", ignoreCase = true) && it.name.contains("int8", ignoreCase = true)
+                it.name.contains("joiner", ignoreCase = true) && it.name.contains(
+                    "int8",
+                    ignoreCase = true
+                )
             }
             val tokensFile = allFiles.firstOrNull { it.name.contains("tokens", ignoreCase = true) }
 
@@ -164,7 +190,10 @@ object ModelManager {
             )
             if (missingInt8.isNotEmpty()) {
                 Timber.w("Missing int8 model files for $languageCode: $missingInt8. Deleting model dir to force re-download.")
-                try { modelDir.deleteRecursively() } catch (_: Exception) {}
+                try {
+                    modelDir.deleteRecursively()
+                } catch (_: Exception) {
+                }
             } else if (decoderFile != null && tokensFile != null) {
                 try {
                     Timber.d("Loading int8 Zipformer model for $languageCode | encoder: ${encoderFile!!.length() / 1024 / 1024}MB decoder: ${decoderFile!!.length() / 1024 / 1024}MB joiner: ${joinerFile!!.length() / 1024 / 1024}MB")
@@ -188,8 +217,14 @@ object ModelManager {
                     )
                     return OfflineRecognizer(null, config)
                 } catch (e: Throwable) {
-                    Timber.e(e, "Error loading int8 model for $languageCode, deleting corrupt folder and falling back")
-                    try { modelDir.deleteRecursively() } catch (_: Exception) {}
+                    Timber.e(
+                        e,
+                        "Error loading int8 model for $languageCode, deleting corrupt folder and falling back"
+                    )
+                    try {
+                        modelDir.deleteRecursively()
+                    } catch (_: Exception) {
+                    }
                 }
             }
         }
@@ -230,7 +265,10 @@ object ModelManager {
             connection.connectTimeout = 20000
             connection.readTimeout = 30000
             connection.requestMethod = "GET"
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            connection.setRequestProperty(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
             connection.setRequestProperty("Accept", "*/*")
 
             val status = connection.responseCode
@@ -263,9 +301,19 @@ object ModelManager {
             return@withContext true
         }
 
-        val initialUrl = LANGUAGE_MODEL_URLS[languageCode] ?: LANGUAGE_MODEL_URLS["en-US"] ?: return@withContext false
+        val initialUrl = LANGUAGE_MODEL_URLS[languageCode] ?: LANGUAGE_MODEL_URLS["en-US"]
+        ?: return@withContext false
         val modelDir = File(context.filesDir, "models/zipformer_$languageCode")
         if (!modelDir.exists()) modelDir.mkdirs()
+
+        // Ưu tiên: tải trực tiếp 4 file int8 đã giải nén (không cần giải mã bz2)
+        Constant.ZIPFORMER_DIRECT_FILES[languageCode]?.let { fileUrls ->
+            if (downloadFilesDirect(context, languageCode, fileUrls, modelDir, onProgress)) {
+                return@withContext true
+            }
+            Timber.w("Direct download failed for $languageCode — falling back to archive")
+            if (!modelDir.exists()) modelDir.mkdirs()
+        }
 
         val ext = when {
             initialUrl.contains(".tar.bz2") -> "tar.bz2"
@@ -280,6 +328,11 @@ object ModelManager {
             tempArchiveFile.delete()
         }
 
+        // .tar.bz2: giải nén TRỰC TIẾP từ HTTP stream (download + giải nén song song, không file tạm)
+        if (ext == "tar.bz2") {
+            return@withContext streamDownloadAndExtractTarBz2(context, languageCode, initialUrl, modelDir, onProgress)
+        }
+
         try {
             val finalUrlStr = getRedirectedUrl(initialUrl)
             Timber.d("Downloading Zipformer model for $languageCode from final URL: $finalUrlStr")
@@ -288,7 +341,10 @@ object ModelManager {
             val connection = url.openConnection() as HttpURLConnection
             connection.connectTimeout = 30000
             connection.readTimeout = 300000  // 5 minutes — large model files can be 750MB+
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            connection.setRequestProperty(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
             connection.setRequestProperty("Accept", "*/*")
             connection.setRequestProperty("Accept-Encoding", "identity")
             connection.connect()
@@ -297,18 +353,22 @@ object ModelManager {
             val fileLength = connection.contentLengthLong
             Timber.d("Content-Length for $languageCode: $fileLength bytes (${fileLength / 1024 / 1024} MB)")
 
-            val input = BufferedInputStream(connection.inputStream)
-            val output = FileOutputStream(tempArchiveFile)
+            val input = BufferedInputStream(connection.inputStream, 131072)
+            val output = BufferedOutputStream(FileOutputStream(tempArchiveFile), 131072)
 
-            val data = ByteArray(BUFFER_SIZE)
+            val data = ByteArray(131072)
             var total: Long = 0
             var count: Int
+            var lastProgress = -1
 
             while (input.read(data).also { count = it } != -1) {
                 total += count.toLong()
                 if (fileLength > 0) {
-                    val progress = ((total * 100) / fileLength).toInt().coerceIn(0, 99)
-                    withContext(Dispatchers.Main) { onProgress(progress) }
+                    val progress = ((total * 90) / fileLength).toInt().coerceIn(0, 90)
+                    if (progress != lastProgress) {
+                        lastProgress = progress
+                        withContext(Dispatchers.Main) { onProgress(progress) }
+                    }
                 }
                 output.write(data, 0, count)
             }
@@ -332,24 +392,212 @@ object ModelManager {
                 return@withContext false
             }
 
-            // Signal extraction starting (100%)
-            withContext(Dispatchers.Main) { onProgress(100) }
-
-            // Extract archive using ZipUtils
-            val extracted = ZipUtils.extractArchive(tempArchiveFile, modelDir.absolutePath)
+            withContext(Dispatchers.Main) { onProgress(90) }
+            val extracted = ZipUtils.extractArchive(tempArchiveFile, modelDir.absolutePath) { pct ->
+                try {
+                    kotlinx.coroutines.runBlocking(Dispatchers.Main) { onProgress(pct) }
+                } catch (_: Exception) {}
+            }
             if (tempArchiveFile.exists()) tempArchiveFile.delete()
 
-            if (extracted) {
-                Timber.d("Model downloaded and extracted successfully to ${modelDir.absolutePath}")
+            if (extracted && isModelDownloaded(context, languageCode)) {
+                withContext(Dispatchers.Main) { onProgress(100) }
+                Timber.d("Extraction complete and model verified for $languageCode")
                 return@withContext true
             } else {
-                Timber.e("Failed to extract archive for $languageCode")
+                Timber.e("Extraction failed for $languageCode or model incomplete")
                 return@withContext false
             }
         } catch (e: Exception) {
             Timber.e(e, "Error downloading model for $languageCode")
             if (tempArchiveFile.exists()) tempArchiveFile.delete()
             return@withContext false
+        }
+    }
+
+    private fun openHttp(urlStr: String, method: String = "GET"): HttpURLConnection =
+        (URL(urlStr).openConnection() as HttpURLConnection).apply {
+            instanceFollowRedirects = true
+            requestMethod = method
+            connectTimeout = 30000
+            readTimeout = 120000
+            setRequestProperty(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            setRequestProperty("Accept", "*/*")
+            setRequestProperty("Accept-Encoding", "identity")
+        }
+
+    /**
+     * Tải trực tiếp từng file model (encoder.int8, decoder, joiner.int8, tokens) — không giải nén.
+     * Ghi ra `*.part` rồi rename để file dở dang không bị coi là model hợp lệ.
+     */
+    private fun downloadFilesDirect(
+        context: Context,
+        languageCode: String,
+        fileUrls: List<String>,
+        modelDir: File,
+        onProgress: (Int) -> Unit
+    ): Boolean {
+        val mainHandler = Handler(Looper.getMainLooper())
+        val startMs = System.currentTimeMillis()
+        try {
+            // 1. Lấy tổng dung lượng để hiển thị progress chính xác
+            val sizes = fileUrls.map { u ->
+                val c = openHttp(u, "HEAD")
+                try { c.connect(); c.contentLengthLong } catch (_: Exception) { -1L } finally { c.disconnect() }
+            }
+            val totalBytes = sizes.filter { it > 0 }.sum()
+            Timber.d("Direct download $languageCode: ${fileUrls.size} files, total ${totalBytes / 1024 / 1024} MB")
+
+            var doneBytes = 0L
+            var lastProgress = -1
+            val buffer = ByteArray(256 * 1024)
+
+            for (u in fileUrls) {
+                val fileName = u.substringAfterLast("/")
+                val target = File(modelDir, fileName)
+                val part = File(modelDir, "$fileName.part")
+                part.delete()
+
+                val conn = openHttp(u)
+                try {
+                    conn.connect()
+                    if (conn.responseCode !in 200..299) {
+                        Timber.e("HTTP ${conn.responseCode} for $u")
+                        return false
+                    }
+                    val expected = conn.contentLengthLong
+                    var written = 0L
+                    BufferedInputStream(conn.inputStream, 256 * 1024).use { input ->
+                        BufferedOutputStream(FileOutputStream(part), 256 * 1024).use { out ->
+                            var n: Int
+                            while (input.read(buffer).also { n = it } != -1) {
+                                out.write(buffer, 0, n)
+                                written += n
+                                doneBytes += n
+                                if (totalBytes > 0) {
+                                    val p = ((doneBytes * 99) / totalBytes).toInt().coerceIn(0, 99)
+                                    if (p != lastProgress) {
+                                        lastProgress = p
+                                        mainHandler.post { onProgress(p) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (expected > 0 && written != expected) {
+                        Timber.e("Incomplete $fileName: $written / $expected bytes")
+                        part.delete()
+                        return false
+                    }
+                    target.delete()
+                    if (!part.renameTo(target)) {
+                        Timber.e("Rename failed for $fileName")
+                        return false
+                    }
+                    Timber.d("Downloaded $fileName (${written / 1024 / 1024} MB)")
+                } finally {
+                    conn.disconnect()
+                }
+            }
+
+            Timber.d("Direct download $languageCode finished in ${(System.currentTimeMillis() - startMs) / 1000}s")
+            if (isModelDownloaded(context, languageCode)) {
+                mainHandler.post { onProgress(100) }
+                return true
+            }
+            return false
+        } catch (e: Exception) {
+            Timber.e(e, "Direct download error for $languageCode")
+            return false
+        } finally {
+            modelDir.listFiles { f -> f.name.endsWith(".part") }?.forEach { it.delete() }
+            if (!isModelDownloaded(context, languageCode)) modelDir.deleteRecursively()
+        }
+    }
+
+    private fun streamDownloadAndExtractTarBz2(
+        context: Context,
+        languageCode: String,
+        initialUrl: String,
+        modelDir: File,
+        onProgress: (Int) -> Unit
+    ): Boolean {
+        val mainHandler = Handler(Looper.getMainLooper())
+        var connection: HttpURLConnection? = null
+        val startMs = System.currentTimeMillis()
+        try {
+            val finalUrlStr = getRedirectedUrl(initialUrl)
+            Timber.d("Streaming Zipformer model for $languageCode from: $finalUrlStr")
+
+            connection = (URL(finalUrlStr).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 30000
+                readTimeout = 300000
+                setRequestProperty(
+                    "User-Agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                )
+                setRequestProperty("Accept", "*/*")
+                setRequestProperty("Accept-Encoding", "identity")
+                connect()
+            }
+
+            val fileLength = connection.contentLengthLong
+            Timber.d("Content-Length for $languageCode: $fileLength bytes (${fileLength / 1024 / 1024} MB)")
+
+            var lastProgress = -1
+            val progressStream = ProgressInputStream(
+                BufferedInputStream(connection.inputStream, 256 * 1024)
+            ) { readBytes ->
+                if (fileLength > 0) {
+                    val p = ((readBytes * 99) / fileLength).toInt().coerceIn(0, 99)
+                    if (p != lastProgress) {
+                        lastProgress = p
+                        mainHandler.post { onProgress(p) }
+                    }
+                }
+            }
+
+            val ok = progressStream.use {
+                ZipUtils.extractModelTarBz2Stream(it, modelDir.absolutePath)
+            }
+            Timber.d("Stream extract for $languageCode finished in ${(System.currentTimeMillis() - startMs) / 1000}s, ok=$ok")
+
+            if (ok && isModelDownloaded(context, languageCode)) {
+                mainHandler.post { onProgress(100) }
+                return true
+            }
+            Timber.e("Streamed model incomplete for $languageCode")
+            modelDir.deleteRecursively()
+            return false
+        } catch (e: Exception) {
+            Timber.e(e, "Error streaming model for $languageCode")
+            modelDir.deleteRecursively()
+            return false
+        } finally {
+            try { connection?.disconnect() } catch (_: Exception) {}
+        }
+    }
+
+    /** Đếm số byte đã đọc từ network để tính progress khi stream-extract. */
+    private class ProgressInputStream(
+        input: InputStream,
+        private val onRead: (Long) -> Unit
+    ) : FilterInputStream(input) {
+        private var total = 0L
+
+        override fun read(): Int {
+            val b = super.read()
+            if (b != -1) { total++; onRead(total) }
+            return b
+        }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            val n = super.read(b, off, len)
+            if (n > 0) { total += n; onRead(total) }
+            return n
         }
     }
 }

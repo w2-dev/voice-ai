@@ -57,7 +57,7 @@ class OnboardViewModel @Inject constructor(private val navigation: MainNavigator
         showAdsInterFinishOnboard(
             isPro,
             appCompatActivity
-        ) { navigation.openHomeFromOnboard() }
+        ) { navigation.openPremiumFromOnboard() }
     }
 
     internal fun onOnboardAdFlowReadyToContinue() {
@@ -66,7 +66,7 @@ class OnboardViewModel @Inject constructor(private val navigation: MainNavigator
 
     internal fun nextScreen() {
         if (uiState.value.nextScreen) {
-            navigation.openHomeFromOnboard()
+            navigation.openPremiumFromOnboard()
             _uiState.update { it.copy(nextScreen = false) }
         }
     }

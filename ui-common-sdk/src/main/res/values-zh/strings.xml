@@ -1,0 +1,22 @@
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="languages">语言</string>
+    <string name="english">英语</string>
+    <string name="korean">韩语</string>
+    <string name="vn">越南语</string>
+    <string name="portuguese">葡萄牙语</string>
+    <string name="german">德语</string>
+    <string name="indian_hindi">印地语</string>
+    <string name="russian">俄语</string>
+    <string name="japanese">日语</string>
+    <string name="spanish">西班牙语</string>
+    <string name="french">法语</string>
+    <string name="italian">意大利语</string>
+    <string name="indonesian">印尼语</string>
+    <string name="arabic">阿拉伯语</string>
+    <string name="chinese">中文</string>
+    <string name="greek">希腊语</string>
+    <string name="malay">马来语</string>
+    <string name="dutch">荷兰语</string>
+    <string name="tagalog">他加禄语</string>
+    <string name="thai">泰语</string>
+</resources>

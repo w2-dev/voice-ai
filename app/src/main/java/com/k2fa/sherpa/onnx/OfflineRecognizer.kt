@@ -2,7 +2,7 @@ package com.k2fsa.sherpa.onnx
 
 import android.content.res.AssetManager
 
-data class OfflineRecognizerResult(
+data class OfflineRecognizerResult @JvmOverloads constructor(
     val text: String,
     val tokens: Array<String>,
     val timestamps: FloatArray,
@@ -12,6 +12,7 @@ data class OfflineRecognizerResult(
 
     // valid only for TDT models
     val durations: FloatArray,
+    val tokenIds: IntArray = intArrayOf(),
 )
 
 data class OfflineTransducerModelConfig(
@@ -250,7 +251,10 @@ class OfflineRecognizer(
 
     companion object {
         init {
-            System.loadLibrary("sherpa-onnx-jni")
+            try {
+                com.tapbi.spark.voiceai.utils.NativeLibLoader.ensureLoaded()
+            } catch (_: Throwable) {
+            }
         }
 
         @JvmStatic
@@ -832,7 +836,7 @@ fun getOfflineModelConfig(type: Int): OfflineModelConfig? {
                     tokenizer = "$modelDir/Qwen3-0.6B",
                 ),
                 tokens = "",
-                numThreads=3,
+                numThreads = 3,
             )
         }
 
@@ -999,7 +1003,7 @@ fun getOfflineModelConfig(type: Int): OfflineModelConfig? {
                     tokenizer = "$modelDir/tokenizer",
                 ),
                 tokens = "",
-                numThreads=3,
+                numThreads = 3,
             )
         }
 

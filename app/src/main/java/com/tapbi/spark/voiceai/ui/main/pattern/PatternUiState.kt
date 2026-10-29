@@ -22,6 +22,7 @@ data class PatternUiState(
     val selectedCols: Int = LockScreenState.patternCols,
     val message: String = "Chọn kiểu lưới hình vẽ của bạn",
     val isError: Boolean = false,
+    val errorCount: Int = 0,
     val firstPattern: List<Int>? = null,
     val hasSavedPattern: Boolean = LockScreenState.hasPatternSetup
 ) {

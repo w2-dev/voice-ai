@@ -31,6 +31,7 @@ class LockScreenViewBinder(
     private val windowManager: WindowManager =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var composeView: ComposeView? = null
+    private var activeLifecycleOwner: OverlayLifecycleOwner? = null
 
     companion object {
         private const val TAG = "LockScreenViewBinder"
@@ -74,11 +75,13 @@ class LockScreenViewBinder(
         }
 
         try {
-            val lifecycleOwner = OverlayLifecycleOwner()
-            lifecycleOwner.performRestore(null)
-            lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
-            lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_START)
-            lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+            val lifecycleOwner = OverlayLifecycleOwner().apply {
+                performRestore(null)
+                handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+                handleLifecycleEvent(Lifecycle.Event.ON_START)
+                handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+            }
+            activeLifecycleOwner = lifecycleOwner
 
             val viewModelStoreOwner = object : ViewModelStoreOwner {
                 override val viewModelStore: ViewModelStore = ViewModelStore()
@@ -99,6 +102,15 @@ class LockScreenViewBinder(
                         )
                     }
                 }
+            }
+
+            composeView?.setOnApplyWindowInsetsListener { view, insets ->
+                if (isAtLeastApi30) {
+                    view.windowInsetsController?.hide(
+                        WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars()
+                    )
+                }
+                insets
             }
 
             windowManager.addView(composeView, params)
@@ -137,18 +149,37 @@ class LockScreenViewBinder(
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Error adding Compose overlay to WindowManager")
             composeView = null
+            activeLifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+            activeLifecycleOwner = null
         }
     }
 
     fun hide() {
         composeView?.let { view ->
             try {
-                windowManager.removeView(view)
+                if (view.isAttachedToWindow) {
+                    windowManager.removeViewImmediate(view)
+                } else {
+                    windowManager.removeView(view)
+                }
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Error removing overlay view from WindowManager")
+                try {
+                    windowManager.removeView(view)
+                } catch (_: Exception) {
+                }
             } finally {
                 composeView = null
             }
+        }
+        try {
+            activeLifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+            activeLifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+            activeLifecycleOwner?.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Error destroying lifecycleOwner")
+        } finally {
+            activeLifecycleOwner = null
         }
     }
 }

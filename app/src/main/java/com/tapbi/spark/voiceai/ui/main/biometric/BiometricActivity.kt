@@ -2,19 +2,43 @@ package com.tapbi.spark.voiceai.ui.main.biometric
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.tapbi.spark.voiceai.common.Constant
+import com.tapbi.spark.voiceai.extension.isAtLeastApi27
 import com.tapbi.spark.voiceai.extension.isAtLeastApi30
 
 class BiometricActivity : FragmentActivity() {
 
+    private var isUnlockedSuccess = false
+    private val handler = Handler(Looper.getMainLooper())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Hiển thị BiometricActivity phía trên Màn hình khóa Overlay và Keyguard hệ thống
+        if (isAtLeastApi27) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        }
+        @Suppress("DEPRECATION")
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        )
+
+        try {
+            sendBroadcast(Intent(Constant.ACTION_BIOMETRIC_STARTED).setPackage(packageName))
+        } catch (_: Exception) {}
 
         val biometricManager = BiometricManager.from(this)
         val authenticators =
@@ -42,7 +66,7 @@ class BiometricActivity : FragmentActivity() {
                     Intent(Settings.ACTION_SECURITY_SETTINGS)
                 }
                 startActivity(enrollIntent)
-                finish()
+                finishActivityAndRemove()
             }
 
             else -> {
@@ -51,7 +75,7 @@ class BiometricActivity : FragmentActivity() {
                     "Không hỗ trợ sinh trắc học trên thiết bị này.",
                     Toast.LENGTH_LONG
                 ).show()
-                finish()
+                finishActivityAndRemove()
             }
         }
     }
@@ -66,16 +90,23 @@ class BiometricActivity : FragmentActivity() {
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     super.onAuthenticationError(errorCode, errString)
-                    finish()
+                    finishActivityAndRemove()
                 }
 
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     super.onAuthenticationSucceeded(result)
-                    val intent = Intent(Constant.ACTION_BIOMETRIC_UNLOCK).apply {
-                        setPackage(packageName)
-                    }
-                    sendBroadcast(intent)
-                    finish()
+                    isUnlockedSuccess = true
+                    // Tránh lỗi giao diện trong suốt treo trên Realme/Oppo/Xiaomi:
+                    // Chờ BiometricPrompt đóng animation xong (~200ms) trước khi phát broadcast unlock và finish
+                    handler.postDelayed({
+                        if (!isFinishing && !isDestroyed) {
+                            val intent = Intent(Constant.ACTION_BIOMETRIC_UNLOCK).apply {
+                                setPackage(packageName)
+                            }
+                            sendBroadcast(intent)
+                            finishActivityAndRemove()
+                        }
+                    }, 200L)
                 }
 
                 override fun onAuthenticationFailed() {
@@ -92,5 +123,21 @@ class BiometricActivity : FragmentActivity() {
             .build()
 
         biometricPrompt.authenticate(promptInfo)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun finishActivityAndRemove() {
+        finishAndRemoveTask()
+        overridePendingTransition(0, 0)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        handler.removeCallbacksAndMessages(null)
+        if (!isUnlockedSuccess) {
+            try {
+                sendBroadcast(Intent(Constant.ACTION_BIOMETRIC_CANCELLED).setPackage(packageName))
+            } catch (_: Exception) {}
+        }
     }
 }
