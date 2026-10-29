@@ -5,14 +5,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,18 +19,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,12 +37,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -62,8 +61,6 @@ import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.OverlayClockHeader
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.PatternUnlockContent
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.PinUnlockContent
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.SecurityQuestionOverlayView
-import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.SwipeUnlockBar
-import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.UnlockMethodChip
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.components.VoiceUnlockContent
 import com.tapbi.spark.voiceai.ui.main.lockoverlay.themes.OverlayThemeConfig
 import com.tapbi.spark.voiceai.utils.ModelManager
@@ -71,14 +68,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 
 enum class OverlayUnlockMethod {
     VOICE,
+    PIN,
     FINGERPRINT,
     PATTERN,
-    PIN,
     SWIPE
 }
 
@@ -89,47 +85,8 @@ fun LockOverlayContent(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var offsetY by remember { mutableFloatStateOf(0f) }
-    val animatedOffsetY by animateFloatAsState(targetValue = offsetY, label = "offsetY")
 
-    // Default active method selection
-    var selectedMethod by remember {
-        mutableStateOf(
-            when {
-                LockScreenState.isPatternLockEnabled -> OverlayUnlockMethod.PATTERN
-                LockScreenState.isVoiceLockEnabled && LockScreenState.hasVoiceSetup -> OverlayUnlockMethod.VOICE
-                LockScreenState.isFingerprintEnabled -> OverlayUnlockMethod.FINGERPRINT
-                LockScreenState.isPinLockEnabled && LockScreenState.hasPinSetup -> OverlayUnlockMethod.PIN
-                else -> OverlayUnlockMethod.SWIPE
-            }
-        )
-    }
-
-    LaunchedEffect(Unit) {
-        ServicePreferences.loadLockScreenStateSync(context)
-    }
-
-    LaunchedEffect(
-        LockScreenState.isPatternLockEnabled,
-        LockScreenState.targetPattern,
-        LockScreenState.hasPatternSetup,
-        LockScreenState.isVoiceLockEnabled,
-        LockScreenState.voicePassphrase,
-        LockScreenState.hasVoiceSetup,
-        LockScreenState.isFingerprintEnabled,
-        LockScreenState.isPinLockEnabled,
-        LockScreenState.pinPassword,
-        LockScreenState.hasPinSetup
-    ) {
-        selectedMethod = when {
-            LockScreenState.isPatternLockEnabled && LockScreenState.hasPatternSetup -> OverlayUnlockMethod.PATTERN
-            LockScreenState.isVoiceLockEnabled && LockScreenState.hasVoiceSetup -> OverlayUnlockMethod.VOICE
-            LockScreenState.isFingerprintEnabled -> OverlayUnlockMethod.FINGERPRINT
-            LockScreenState.isPinLockEnabled && LockScreenState.hasPinSetup -> OverlayUnlockMethod.PIN
-            else -> OverlayUnlockMethod.SWIPE
-        }
-    }
-
+    var activeInputOverlay by remember { mutableStateOf<OverlayUnlockMethod?>(null) }
     var voiceStatus by remember { mutableStateOf("") }
     var recognizedTextInfo by remember { mutableStateOf("") }
     var vectorDistInfo by remember { mutableStateOf("") }
@@ -140,6 +97,10 @@ fun LockOverlayContent(
     var pinInput by remember { mutableStateOf("") }
     var isPinError by remember { mutableStateOf(false) }
     var showSecurityOverlay by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        ServicePreferences.loadLockScreenStateSync(context)
+    }
 
     fun triggerBiometricUnlock() {
         biometricStatus = "Đang chờ xác thực vân tay / sinh trắc học..."
@@ -188,12 +149,6 @@ fun LockOverlayContent(
         }
     }
 
-    LaunchedEffect(Unit) {
-        if (selectedMethod == OverlayUnlockMethod.FINGERPRINT) {
-            triggerBiometricUnlock()
-        }
-    }
-
     LaunchedEffect(LockScreenState.speechLanguageCode) {
         coroutineScope.launch(Dispatchers.IO) {
             ModelManager.prewarmModels(context, LockScreenState.speechLanguageCode)
@@ -212,6 +167,7 @@ fun LockOverlayContent(
         if (context.hasRecordAudioPermission()) {
             if (isRecording) return
             isRecording = true
+            activeInputOverlay = OverlayUnlockMethod.VOICE
             recognizedTextInfo = ""
             vectorDistInfo = ""
 
@@ -232,11 +188,7 @@ fun LockOverlayContent(
                     is VoiceUnlockResult.Success -> {
                         recognizedTextInfo = "ASR Text: \"${result.recognizedText}\""
                         vectorDistInfo = if (LockScreenState.referenceEmbedding != null) {
-                            "Cosine Distance: ${"%.4f".format(result.distance)} (Ngưỡng < 0.45) | Similarity: ${
-                                "%.1f".format(
-                                    result.similarity * 100
-                                )
-                            }%"
+                            "Cosine Distance: ${"%.4f".format(result.distance)} | Similarity: ${"%.1f".format(result.similarity * 100)}%"
                         } else {
                             "Similarity: ${"%.1f".format(result.similarity * 100)}%"
                         }
@@ -248,11 +200,7 @@ fun LockOverlayContent(
                         recognizedTextInfo =
                             if (result.recognizedText.isNotBlank()) "ASR Text: \"${result.recognizedText}\"" else "ASR Text: (Không nhận diện từ)"
                         vectorDistInfo = if (LockScreenState.referenceEmbedding != null) {
-                            "Cosine Distance: ${"%.4f".format(result.distance)} (Ngưỡng < 0.45) | Similarity: ${
-                                "%.1f".format(
-                                    result.similarity * 100
-                                )
-                            }%"
+                            "Cosine Distance: ${"%.4f".format(result.distance)} | Similarity: ${"%.1f".format(result.similarity * 100)}%"
                         } else {
                             "Similarity: ${"%.1f".format(result.similarity * 100)}%"
                         }
@@ -265,35 +213,84 @@ fun LockOverlayContent(
         }
     }
 
-    val rootModifier = if (selectedMethod != OverlayUnlockMethod.PATTERN) {
-        Modifier
-            .fillMaxSize()
-            .background(themeConfig.backgroundColor)
-            .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragEnd = {
-                        if (offsetY < -150f) {
-                            onUnlockClick()
-                        }
-                        offsetY = 0f
-                    },
-                    onDragCancel = { offsetY = 0f },
-                    onVerticalDrag = { _, dragAmount ->
-                        if (dragAmount < 0 || offsetY < 0) {
-                            offsetY += dragAmount
-                        }
-                    }
-                )
+    // Determine active unlock options
+    val activeMethods = remember(
+        LockScreenState.isVoiceLockEnabled,
+        LockScreenState.hasVoiceSetup,
+        LockScreenState.isPinLockEnabled,
+        LockScreenState.hasPinSetup,
+        LockScreenState.isFingerprintEnabled,
+        LockScreenState.isPatternLockEnabled,
+        LockScreenState.hasPatternSetup
+    ) {
+        val list = mutableListOf<OverlayUnlockMethod>()
+        if (LockScreenState.isVoiceLockEnabled && LockScreenState.hasVoiceSetup) {
+            list.add(OverlayUnlockMethod.VOICE)
+        }
+        if (LockScreenState.isPinLockEnabled && LockScreenState.hasPinSetup) {
+            list.add(OverlayUnlockMethod.PIN)
+        }
+        if (LockScreenState.isFingerprintEnabled) {
+            list.add(OverlayUnlockMethod.FINGERPRINT)
+        }
+        if (LockScreenState.isPatternLockEnabled && LockScreenState.hasPatternSetup) {
+            list.add(OverlayUnlockMethod.PATTERN)
+        }
+        list
+    }
+
+    // Slot Allocation Priority: [Center, Start, End, RightEnd]
+    val centerMethod: OverlayUnlockMethod? = remember(activeMethods) {
+        when {
+            activeMethods.contains(OverlayUnlockMethod.VOICE) -> OverlayUnlockMethod.VOICE
+            activeMethods.isNotEmpty() -> activeMethods[0]
+            else -> OverlayUnlockMethod.SWIPE
+        }
+    }
+
+    val remainingMethods = remember(activeMethods, centerMethod) {
+        activeMethods.filter { it != centerMethod }
+    }
+
+    val startMethod: OverlayUnlockMethod? = remainingMethods.getOrNull(0)
+    val endMethod: OverlayUnlockMethod? = remainingMethods.getOrNull(1)
+    val rightEndMethod: OverlayUnlockMethod? = remainingMethods.getOrNull(2)
+
+    fun handleOptionClick(method: OverlayUnlockMethod) {
+        when (method) {
+            OverlayUnlockMethod.VOICE -> {
+                startVoiceRecognition()
             }
-    } else {
-        Modifier
-            .fillMaxSize()
-            .background(themeConfig.backgroundColor)
+
+            OverlayUnlockMethod.FINGERPRINT -> {
+                triggerBiometricUnlock()
+            }
+
+            OverlayUnlockMethod.PIN -> {
+                pinInput = ""
+                isPinError = false
+                activeInputOverlay = OverlayUnlockMethod.PIN
+            }
+
+            OverlayUnlockMethod.PATTERN -> {
+                isPatternError = false
+                activeInputOverlay = OverlayUnlockMethod.PATTERN
+            }
+
+            OverlayUnlockMethod.SWIPE -> {
+                onUnlockClick()
+            }
+        }
     }
 
     Box(
-        modifier = rootModifier,
-        contentAlignment = Alignment.Center
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color(0xFF3F51B5), Color(0xFF1A237E), Color(0xFF0D47A1))
+                )
+            )
     ) {
         if (showSecurityOverlay) {
             Box(
@@ -310,118 +307,136 @@ fun LockOverlayContent(
                 )
             }
         } else {
-            // Top-End Security Question Button (?)
+            // 1. Top-Right Security Question Button (7)
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = 40.dp, end = 20.dp)
-                    .size(40.dp)
+                    .padding(top = 44.dp, end = 20.dp)
+                    .size(38.dp)
                     .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.45f))
-                    .border(2.dp, Color.White.copy(alpha = 0.9f), CircleShape)
-                    .clickable {
-                        showSecurityOverlay = true
-                    },
+                    .background(Color.White.copy(alpha = 0.25f))
+                    .clickable { showSecurityOverlay = true },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "?",
-                    fontSize = 22.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
             }
 
+            // 2. Top-Center Clock & Date Header
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
                 modifier = Modifier
-                    .padding(24.dp)
-                    .offset { IntOffset(0, animatedOffsetY.roundToInt()) }
+                    .align(Alignment.TopCenter)
+                    .padding(top = 64.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Live Clock Component
                 OverlayClockHeader(themeConfig = themeConfig)
+            }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Unlock Method Selector Buttons
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(
-                        8.dp,
-                        Alignment.CenterHorizontally
-                    ),
-                    verticalAlignment = Alignment.CenterVertically,
+            // 3. Active Input Overlay View (PIN / Pattern / Voice Status)
+            if (activeInputOverlay != null) {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(bottom = 20.dp)
+                        .align(Alignment.Center)
+                        .padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    if (LockScreenState.isVoiceLockEnabled && LockScreenState.hasVoiceSetup) {
-                        UnlockMethodChip(
-                            icon = "🎤",
-                            label = "Giọng nói",
-                            isSelected = selectedMethod == OverlayUnlockMethod.VOICE,
-                            onClick = {
-                                if (!isRecording) {
-                                    selectedMethod = OverlayUnlockMethod.VOICE
-                                }
-                            }
-                        )
-                    }
-
-                    if (LockScreenState.isFingerprintEnabled) {
-                        UnlockMethodChip(
-                            icon = "👆",
-                            label = "Vân tay",
-                            isSelected = selectedMethod == OverlayUnlockMethod.FINGERPRINT,
-                            onClick = {
-                                if (!isRecording) {
-                                    selectedMethod = OverlayUnlockMethod.FINGERPRINT
-                                    triggerBiometricUnlock()
-                                }
-                            }
-                        )
-                    }
-
-                    if (LockScreenState.isPinLockEnabled && LockScreenState.hasPinSetup) {
-                        UnlockMethodChip(
-                            icon = "🔢",
-                            label = "Mã PIN",
-                            isSelected = selectedMethod == OverlayUnlockMethod.PIN,
-                            onClick = {
-                                if (!isRecording) {
-                                    selectedMethod = OverlayUnlockMethod.PIN
+                    AnimatedVisibility(
+                        visible = activeInputOverlay == OverlayUnlockMethod.PIN,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            PinUnlockContent(
+                                pinInput = pinInput,
+                                isPinError = isPinError,
+                                onDigitClick = { digit ->
+                                    if (pinInput.length < 4) {
+                                        val newPin = pinInput + digit
+                                        pinInput = newPin
+                                        isPinError = false
+                                        if (newPin.length == 4) {
+                                            coroutineScope.launch {
+                                                delay(150L.milliseconds)
+                                                if (newPin == LockScreenState.pinPassword) {
+                                                    onUnlockClick()
+                                                } else {
+                                                    isPinError = true
+                                                    pinInput = ""
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                onDeleteClick = {
+                                    if (pinInput.isNotEmpty()) {
+                                        pinInput = pinInput.dropLast(1)
+                                        isPinError = false
+                                    }
+                                },
+                                onClearClick = {
                                     pinInput = ""
                                     isPinError = false
                                 }
-                            }
-                        )
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Text(
+                                text = "✕ Đóng",
+                                fontSize = 14.sp,
+                                color = Color.White.copy(alpha = 0.8f),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { activeInputOverlay = null }
+                                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                            )
+                        }
                     }
 
-                    if (LockScreenState.isPatternLockEnabled && LockScreenState.hasPatternSetup) {
-                        UnlockMethodChip(
-                            icon = "🎨",
-                            label = "Hình vẽ",
-                            isSelected = selectedMethod == OverlayUnlockMethod.PATTERN,
-                            onClick = {
-                                if (!isRecording) {
-                                    selectedMethod = OverlayUnlockMethod.PATTERN
-                                    isPatternError = false
+                    AnimatedVisibility(
+                        visible = activeInputOverlay == OverlayUnlockMethod.PATTERN,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            PatternUnlockContent(
+                                isPatternError = isPatternError,
+                                clearTrigger = patternErrorCount,
+                                onPatternComplete = { pattern ->
+                                    val target = LockScreenState.targetPattern
+                                    if (target.isNullOrEmpty() || pattern == target) {
+                                        isPatternError = false
+                                        onUnlockClick()
+                                    } else {
+                                        patternErrorCount++
+                                    }
                                 }
-                            }
-                        )
-                    }
-                }
+                            )
 
-                // Display Active Method Content
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 280.dp, max = 340.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    this@Column.AnimatedVisibility(
-                        visible = selectedMethod == OverlayUnlockMethod.VOICE,
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Text(
+                                text = "✕ Đóng",
+                                fontSize = 14.sp,
+                                color = Color.White.copy(alpha = 0.8f),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { activeInputOverlay = null }
+                                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+
+                    AnimatedVisibility(
+                        visible = activeInputOverlay == OverlayUnlockMethod.VOICE,
                         enter = fadeIn(),
                         exit = fadeOut()
                     ) {
@@ -435,96 +450,310 @@ fun LockOverlayContent(
                             onMicrophoneClick = { startVoiceRecognition() }
                         )
                     }
+                }
+            }
 
-                    this@Column.AnimatedVisibility(
-                        visible = selectedMethod == OverlayUnlockMethod.FINGERPRINT,
-                        enter = fadeIn(),
-                        exit = fadeOut()
-                    ) {
-                        FingerprintUnlockContent(
-                            biometricStatus = biometricStatus,
-                            themeConfig = themeConfig,
-                            onFingerprintClick = { triggerBiometricUnlock() }
-                        )
-                    }
+            // 4. Bottom Control Bar (Number 6)
+            BottomUnlockControlBar(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp),
+                centerMethod = centerMethod,
+                startMethod = startMethod,
+                endMethod = endMethod,
+                rightEndMethod = rightEndMethod,
+                isRecording = isRecording,
+                onMethodClick = { handleOptionClick(it) }
+            )
+        }
+    }
+}
 
-                    this@Column.AnimatedVisibility(
-                        visible = selectedMethod == OverlayUnlockMethod.PIN,
-                        enter = fadeIn(),
-                        exit = fadeOut()
-                    ) {
-                        PinUnlockContent(
-                            pinInput = pinInput,
-                            isPinError = isPinError,
-                            onDigitClick = { digit ->
-                                if (pinInput.length < 4) {
-                                    val newPin = pinInput + digit
-                                    pinInput = newPin
-                                    isPinError = false
-                                    if (newPin.length == 4) {
-                                        coroutineScope.launch {
-                                            delay(150L.milliseconds)
-                                            if (newPin == LockScreenState.pinPassword) {
-                                                onUnlockClick()
-                                            } else {
-                                                isPinError = true
-                                                pinInput = ""
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            onDeleteClick = {
-                                if (pinInput.isNotEmpty()) {
-                                    pinInput = pinInput.dropLast(1)
-                                    isPinError = false
-                                }
-                            },
-                            onClearClick = {
-                                pinInput = ""
-                                isPinError = false
-                            }
-                        )
-                    }
+/**
+ * Thanh điều khiển mở khóa dưới đáy màn hình với 4 vị trí: [Start, Center, End, RightEnd]
+ */
+@Composable
+private fun BottomUnlockControlBar(
+    modifier: Modifier = Modifier,
+    centerMethod: OverlayUnlockMethod?,
+    startMethod: OverlayUnlockMethod?,
+    endMethod: OverlayUnlockMethod?,
+    rightEndMethod: OverlayUnlockMethod?,
+    isRecording: Boolean,
+    onMethodClick: (OverlayUnlockMethod) -> Unit
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Position 1: Start (Far Left)
+            Box(
+                modifier = Modifier.width(56.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                if (startMethod != null) {
+                    SmallOptionPillButton(
+                        method = startMethod,
+                        onClick = { onMethodClick(startMethod) }
+                    )
+                }
+            }
 
-                    this@Column.AnimatedVisibility(
-                        visible = selectedMethod == OverlayUnlockMethod.PATTERN,
-                        enter = fadeIn(),
-                        exit = fadeOut()
-                    ) {
-                        PatternUnlockContent(
-                            isPatternError = isPatternError,
-                            clearTrigger = patternErrorCount,
-                            onPatternComplete = { pattern ->
-                                val target = LockScreenState.targetPattern
-                                if (target.isNullOrEmpty() || pattern == target) {
-                                    isPatternError = false
-                                    onUnlockClick()
-                                } else {
-                                    patternErrorCount++
-                                }
-                            }
-                        )
-                    }
+            // Position 2: Center (Primary Button)
+            Box(
+                contentAlignment = Alignment.Center
+            ) {
+                if (centerMethod != null) {
+                    CenterPrimaryButton(
+                        method = centerMethod,
+                        isRecording = isRecording,
+                        onClick = { onMethodClick(centerMethod) }
+                    )
+                }
+            }
 
-                    if (selectedMethod == OverlayUnlockMethod.SWIPE) {
-                        Text(
-                            text = "Vuốt lên hoặc chọn phương thức mở khóa ở trên",
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.8f),
-                            textAlign = TextAlign.Center
-                        )
-                    }
+            // Position 3 & 4: End & Right End (Far Right)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (endMethod != null) {
+                    SmallOptionCircleButton(
+                        method = endMethod,
+                        onClick = { onMethodClick(endMethod) }
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Swipe / Unlock Bar Component
-                SwipeUnlockBar(
-                    themeConfig = themeConfig,
-                    onUnlock = onUnlockClick
-                )
+                if (rightEndMethod != null) {
+                    SmallOptionPillButton(
+                        method = rightEndMethod,
+                        onClick = { onMethodClick(rightEndMethod) }
+                    )
+                }
             }
+        }
+
+        Text(
+            text = "Tap to unlock",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.White.copy(alpha = 0.85f),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+/**
+ * Nút chính ở giữa (Center Primary Orange Circle)
+ */
+@Composable
+private fun CenterPrimaryButton(
+    method: OverlayUnlockMethod,
+    isRecording: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(82.dp)
+            .clip(CircleShape)
+            .background(Color(0xFF3F4E5A).copy(alpha = 0.55f))
+            .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(62.dp)
+                .clip(CircleShape)
+                .background(if (isRecording) Color(0xFFE53935) else Color(0xFFF57C00))
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            when (method) {
+                OverlayUnlockMethod.VOICE -> {
+                    WhiteMicrophoneIcon(modifier = Modifier.size(30.dp))
+                }
+
+                OverlayUnlockMethod.PIN -> {
+                    Text(text = "🔢", fontSize = 24.sp)
+                }
+
+                OverlayUnlockMethod.FINGERPRINT -> {
+                    Text(text = "👆", fontSize = 24.sp)
+                }
+
+                OverlayUnlockMethod.PATTERN -> {
+                    Text(text = "🎛️", fontSize = 24.sp)
+                }
+
+                OverlayUnlockMethod.SWIPE -> {
+                    Text(text = "🔓", fontSize = 24.sp)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Nút tùy chọn dạng Pill trắng ở góc (Start / RightEnd)
+ */
+@Composable
+private fun SmallOptionPillButton(
+    method: OverlayUnlockMethod,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .height(38.dp)
+            .width(52.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        OptionIcon(method = method)
+    }
+}
+
+/**
+ * Nút tùy chọn dạng Tròn trắng (End)
+ */
+@Composable
+private fun SmallOptionCircleButton(
+    method: OverlayUnlockMethod,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(38.dp)
+            .clip(CircleShape)
+            .background(Color.White)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        OptionIcon(method = method)
+    }
+}
+
+@Composable
+private fun OptionIcon(method: OverlayUnlockMethod) {
+    when (method) {
+        OverlayUnlockMethod.PIN -> OptionPinIcon(modifier = Modifier.size(20.dp))
+        OverlayUnlockMethod.FINGERPRINT -> OptionFingerprintIcon(modifier = Modifier.size(20.dp))
+        OverlayUnlockMethod.PATTERN -> OptionPatternIcon(modifier = Modifier.size(20.dp))
+        OverlayUnlockMethod.VOICE -> Text(text = "🎙️", fontSize = 16.sp)
+        OverlayUnlockMethod.SWIPE -> Text(text = "🔓", fontSize = 16.sp)
+    }
+}
+
+// Icon Canvas Composables
+@Composable
+private fun WhiteMicrophoneIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        drawRoundRect(
+            color = Color.White,
+            topLeft = Offset(w * 0.35f, h * 0.15f),
+            size = Size(w * 0.3f, h * 0.45f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx())
+        )
+
+        drawArc(
+            color = Color.White,
+            startAngle = 0f,
+            sweepAngle = 180f,
+            useCenter = false,
+            topLeft = Offset(w * 0.22f, h * 0.3f),
+            size = Size(w * 0.56f, h * 0.45f),
+            style = Stroke(width = 2.5.dp.toPx())
+        )
+
+        drawLine(
+            color = Color.White,
+            start = Offset(w / 2f, h * 0.75f),
+            end = Offset(w / 2f, h * 0.9f),
+            strokeWidth = 2.5.dp.toPx()
+        )
+    }
+}
+
+@Composable
+private fun OptionPinIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        val dotR = 2.dp.toPx()
+        val startX = w * 0.25f
+        val gap = w * 0.25f
+        val cy = h * 0.5f
+
+        for (i in 0..2) {
+            drawCircle(
+                color = Color(0xFF29B6F6),
+                radius = dotR,
+                center = Offset(startX + i * gap, cy)
+            )
+        }
+    }
+}
+
+@Composable
+private fun OptionPatternIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        val dotR = 1.8.dp.toPx()
+        val offsets = listOf(
+            Offset(w * 0.3f, h * 0.3f),
+            Offset(w * 0.7f, h * 0.3f),
+            Offset(w * 0.3f, h * 0.65f),
+            Offset(w * 0.7f, h * 0.65f)
+        )
+
+        val path = Path().apply {
+            moveTo(offsets[0].x, offsets[0].y)
+            lineTo(offsets[1].x, offsets[1].y)
+            lineTo(offsets[3].x, offsets[3].y)
+            lineTo(offsets[2].x, offsets[2].y)
+        }
+        drawPath(path, color = Color(0xFF29B6F6), style = Stroke(width = 1.5.dp.toPx()))
+
+        offsets.forEach {
+            drawCircle(color = Color(0xFF29B6F6), radius = dotR, center = it)
+        }
+    }
+}
+
+@Composable
+private fun OptionFingerprintIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        for (i in 1..3) {
+            val arcSize = Size(w * 0.22f * i, h * 0.22f * i)
+            drawArc(
+                color = Color(0xFFEC407A),
+                startAngle = 180f,
+                sweepAngle = 180f,
+                useCenter = false,
+                topLeft = Offset(
+                    w / 2f - arcSize.width / 2f,
+                    h / 2f - arcSize.height / 2f + i * 1.5.dp.toPx()
+                ),
+                style = Stroke(width = 1.5.dp.toPx())
+            )
         }
     }
 }

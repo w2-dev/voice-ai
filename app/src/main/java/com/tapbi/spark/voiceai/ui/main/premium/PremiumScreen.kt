@@ -211,7 +211,7 @@ private fun ProContent(
             contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(id = R.mipmap.ic_launcher),
+                painter = painterResource(id = R.drawable.ic_launcher_foreground),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.size(54.dp)

@@ -1,7 +1,7 @@
 package com.tapbi.spark.voiceai.ui.main.home
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,8 +23,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,24 +31,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tapbi.spark.voiceai.ui.dialog.FingerprintSetupDialog
 import com.tapbi.spark.voiceai.ui.dialog.PermissionDialog
+import com.tapbi.spark.voiceai.ui.main.home.components.FingerprintIcon
+import com.tapbi.spark.voiceai.ui.main.home.components.LockMethodToggleRow
+import com.tapbi.spark.voiceai.ui.main.home.components.PatternIcon
+import com.tapbi.spark.voiceai.ui.main.home.components.PhonePreviewWidget
+import com.tapbi.spark.voiceai.ui.main.home.components.PinIcon
+import com.tapbi.spark.voiceai.ui.main.home.components.PowerIcon
+import com.tapbi.spark.voiceai.ui.main.home.components.SetupLockCard
+import com.tapbi.spark.voiceai.ui.main.home.components.WaveformIcon
 
 /**
- * Màn hình HomeScreen.
- * Cấu trúc: HomeHeader -> HomeContent.
+ * Màn hình HomeScreen chuẩn theo hình ảnh thiết kế.
+ * Cấu trúc: HomeHeader -> HomeContent (3 khối Card trắng tách biệt trên nền xám nhẹ).
  */
 @Composable
 fun HomeScreen(
@@ -86,14 +86,14 @@ fun HomeScreen(
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
-        // 1. Header
+        // 1. Header TopBar
         HomeHeader(
             onProClick = { viewModel.showPremiumScreen() },
             onSettingsClick = { viewModel.onSecurityQuestionSetupClick() },
             modifier = Modifier.fillMaxWidth()
         )
 
-        // 2. Content
+        // 2. Content (3 khối Card trắng tách rời)
         HomeContent(
             uiState = uiState,
             onActiveToggle = { viewModel.toggleLockScreenActive(context, !uiState.isLockScreenActive) },
@@ -166,7 +166,7 @@ private fun HomeHeader(
 }
 
 /**
- * Nội dung cuộn chính bao gồm Active Lock Shield, Lock Preview/Options Card, và Setup Lock Grid.
+ * Nội dung cuộn chính chứa 3 khối Card trắng độc lập.
  */
 @Composable
 private fun HomeContent(
@@ -188,13 +188,13 @@ private fun HomeContent(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 1. Active Lock Shield Card
+        // Card 1: Active Lock Shield Card
         ActiveLockShieldCard(
             isActive = uiState.isLockScreenActive,
             onActiveToggle = onActiveToggle
         )
 
-        // 2 & 3. Lock Screen Preview + Lock Options Card
+        // Card 2: Lock Preview & Options Card
         LockPreviewAndOptionsCard(
             uiState = uiState,
             onVoiceToggle = onVoiceToggle,
@@ -203,7 +203,7 @@ private fun HomeContent(
             onFingerprintToggle = onFingerprintToggle
         )
 
-        // 4. Setup Lock Card Grid
+        // Card 3: Setup Lock Card Grid
         SetupLockCard(
             onVoiceSetup = onVoiceSetup,
             onPinSetup = onPinSetup,
@@ -216,7 +216,7 @@ private fun HomeContent(
 }
 
 /**
- * Section 1: Active Lock Shield Card với nút Power Toggle
+ * Card 1: Active Lock Shield Card với nút Power Toggle dạng Cyan Ring
  */
 @Composable
 private fun ActiveLockShieldCard(
@@ -248,33 +248,42 @@ private fun ActiveLockShieldCard(
                 )
 
                 Text(
-                    text = if (isActive) "Active" else "Offline",
+                    text = if (isActive) "Running" else "Offline",
                     fontSize = 14.sp,
-                    color = if (isActive) Color(0xFF4CAF50) else Color(0xFF9E9E9E),
+                    color = if (isActive) Color(0xFF616161) else Color(0xFF9E9E9E),
                     fontWeight = FontWeight.Medium
                 )
             }
 
-            // Circular Power Button Toggle
+            // Power Button với vòng viền Cyan
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(50.dp)
                     .clip(CircleShape)
-                    .background(if (isActive) Color(0xFF4A6572) else Color(0xFFB0BEC5))
+                    .background(Color(0xFFE0F7FA))
+                    .border(2.dp, if (isActive) Color(0xFF00B0FF) else Color(0xFFB0BEC5), CircleShape)
                     .clickable(onClick = onActiveToggle),
                 contentAlignment = Alignment.Center
             ) {
-                PowerIcon(
-                    tint = if (isActive) Color.White else Color(0xFFE0E0E0),
-                    modifier = Modifier.size(24.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(if (isActive) Color(0xFF00B0FF) else Color(0xFFB0BEC5)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    PowerIcon(
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
 }
 
 /**
- * Section 2 & 3: Thẻ kết hợp giữa Hình Xem Trước Màn Hình Khóa + Các Tùy Chọn Khóa
+ * Card 2: Hình Xem Trước Màn Hình Khóa + Các Tùy Chọn Khóa Bật/Tắt
  */
 @Composable
 private fun LockPreviewAndOptionsCard(
@@ -298,7 +307,7 @@ private fun LockPreviewAndOptionsCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Left: Smartphone Screen Preview
+            // Left: Smartphone Screen Preview Widget
             PhonePreviewWidget(
                 modifier = Modifier
                     .width(135.dp)
@@ -356,394 +365,6 @@ private fun LockPreviewAndOptionsCard(
                     onCheckedChange = onFingerprintToggle
                 )
             }
-        }
-    }
-}
-
-/**
- * Dòng hiển thị loại khóa kèm nút bật/tắt (Switch)
- */
-@Composable
-private fun LockMethodToggleRow(
-    iconBgColor: Color,
-    icon: @Composable () -> Unit,
-    title: String,
-    checked: Boolean,
-    enabled: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(iconBgColor),
-                    contentAlignment = Alignment.Center
-                ) {
-                    icon()
-                }
-
-                Text(
-                    text = title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF212121)
-                )
-            }
-
-            Switch(
-                checked = checked,
-                enabled = enabled,
-                onCheckedChange = onCheckedChange,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = Color(0xFF29B6F6),
-                    uncheckedThumbColor = Color.White,
-                    uncheckedTrackColor = Color(0xFFE0E0E0)
-                ),
-                modifier = Modifier.size(width = 40.dp, height = 24.dp)
-            )
-        }
-    }
-}
-
-/**
- * Section 4: "Setup Lock" Card Grid
- */
-@Composable
-private fun SetupLockCard(
-    onVoiceSetup: () -> Unit,
-    onPinSetup: () -> Unit,
-    onPatternSetup: () -> Unit,
-    onFingerprintSetup: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(2.dp, RoundedCornerShape(20.dp)),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Text(
-                text = "Setup Lock",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF212121)
-            )
-
-            // 2x2 Setup Item Grid
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Voice setup
-                    SetupItemBox(
-                        modifier = Modifier.weight(1f),
-                        iconBgColor = Color(0xFFFFF0F5),
-                        icon = { WaveformIcon(modifier = Modifier.size(20.dp)) },
-                        title = "Voice setup",
-                        onClick = onVoiceSetup
-                    )
-
-                    // Pin setup
-                    SetupItemBox(
-                        modifier = Modifier.weight(1f),
-                        iconBgColor = Color(0xFFFFF0F5),
-                        icon = { PinIcon(modifier = Modifier.size(20.dp)) },
-                        title = "Pin setup",
-                        onClick = onPinSetup
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Pattern setup
-                    SetupItemBox(
-                        modifier = Modifier.weight(1f),
-                        iconBgColor = Color(0xFFE1F5FE),
-                        icon = { PatternIcon(modifier = Modifier.size(20.dp)) },
-                        title = "Pattern setup",
-                        onClick = onPatternSetup
-                    )
-
-                    // Fingerprint
-                    SetupItemBox(
-                        modifier = Modifier.weight(1f),
-                        iconBgColor = Color(0xFFFCE4EC),
-                        icon = { FingerprintIcon(modifier = Modifier.size(20.dp)) },
-                        title = "Fingerprint",
-                        onClick = onFingerprintSetup
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * Mỗi ô thiết lập loại khóa trong Setup Lock
- */
-@Composable
-private fun SetupItemBox(
-    modifier: Modifier = Modifier,
-    iconBgColor: Color,
-    icon: @Composable () -> Unit,
-    title: String,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFFF8F9FB))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 14.dp)
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(iconBgColor),
-                contentAlignment = Alignment.Center
-            ) {
-                icon()
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = title,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF212121)
-                )
-
-                Text(
-                    text = "›",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF9E9E9E)
-                )
-            }
-        }
-    }
-}
-
-/**
- * Widget mô phỏng màn hình khóa điện thoại (Phone Preview Widget)
- */
-@Composable
-private fun PhonePreviewWidget(
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(Color(0xFF4FC3F7), Color(0xFF0288D1), Color(0xFF01579B))
-                )
-            )
-            .padding(10.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Top: Clock and Date
-            Column(
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text(
-                    text = "08:32",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-
-                Text(
-                    text = "Wed, Aug 20\n☀️ 22°",
-                    fontSize = 10.sp,
-                    color = Color.White.copy(alpha = 0.9f),
-                    lineHeight = 12.sp
-                )
-            }
-
-            // Bottom: Quote and Icons
-            Column(
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = "\"Embrace your dreams,\nwhatever happens, protect you\"",
-                    fontSize = 8.sp,
-                    color = Color.White.copy(alpha = 0.85f),
-                    textAlign = TextAlign.Center,
-                    lineHeight = 10.sp,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "🎙️", fontSize = 12.sp)
-                    Text(text = "📷", fontSize = 12.sp)
-                }
-            }
-        }
-    }
-}
-
-// Custom Power Icon
-@Composable
-private fun PowerIcon(
-    tint: Color,
-    modifier: Modifier = Modifier
-) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-
-        drawArc(
-            color = tint,
-            startAngle = 135f,
-            sweepAngle = 270f,
-            useCenter = false,
-            topLeft = Offset(w * 0.15f, h * 0.15f),
-            size = Size(w * 0.7f, h * 0.7f),
-            style = Stroke(width = 2.5.dp.toPx())
-        )
-
-        drawLine(
-            color = tint,
-            start = Offset(w / 2f, h * 0.1f),
-            end = Offset(w / 2f, h * 0.45f),
-            strokeWidth = 2.5.dp.toPx()
-        )
-    }
-}
-
-// Vector Icon Composables
-@Composable
-private fun WaveformIcon(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val c = Offset(w / 2f, h / 2f)
-
-        val barWidth = 2.dp.toPx()
-        val heights = listOf(0.4f, 0.8f, 1.0f, 0.6f, 0.9f, 0.5f)
-        val startX = c.x - (heights.size * barWidth * 1.5f) / 2f
-
-        heights.forEachIndexed { i, factor ->
-            val x = startX + i * barWidth * 2f
-            val barH = h * 0.6f * factor
-            drawLine(
-                color = Color(0xFF29B6F6),
-                start = Offset(x, c.y - barH / 2f),
-                end = Offset(x, c.y + barH / 2f),
-                strokeWidth = barWidth
-            )
-        }
-    }
-}
-
-@Composable
-private fun PinIcon(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-
-        val dotR = 2.dp.toPx()
-        val startX = w * 0.25f
-        val gap = w * 0.25f
-        val cy = h * 0.5f
-
-        for (i in 0..2) {
-            drawCircle(
-                color = Color(0xFF29B6F6),
-                radius = dotR,
-                center = Offset(startX + i * gap, cy)
-            )
-        }
-    }
-}
-
-@Composable
-private fun PatternIcon(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-
-        val dotR = 1.8.dp.toPx()
-        val offsets = listOf(
-            Offset(w * 0.3f, h * 0.3f),
-            Offset(w * 0.7f, h * 0.3f),
-            Offset(w * 0.3f, h * 0.7f),
-            Offset(w * 0.7f, h * 0.7f)
-        )
-
-        val path = Path().apply {
-            moveTo(offsets[0].x, offsets[0].y)
-            lineTo(offsets[1].x, offsets[1].y)
-            lineTo(offsets[3].x, offsets[3].y)
-            lineTo(offsets[2].x, offsets[2].y)
-        }
-        drawPath(path, color = Color(0xFF29B6F6), style = Stroke(width = 1.5.dp.toPx()))
-
-        offsets.forEach {
-            drawCircle(color = Color(0xFF29B6F6), radius = dotR, center = it)
-        }
-    }
-}
-
-@Composable
-private fun FingerprintIcon(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-
-        for (i in 1..3) {
-            val arcSize = Size(w * 0.22f * i, h * 0.22f * i)
-            drawArc(
-                color = Color(0xFFEC407A),
-                startAngle = 180f,
-                sweepAngle = 180f,
-                useCenter = false,
-                topLeft = Offset(
-                    w / 2f - arcSize.width / 2f,
-                    h / 2f - arcSize.height / 2f + i * 1.5.dp.toPx()
-                ),
-                style = Stroke(width = 1.5.dp.toPx())
-            )
         }
     }
 }
